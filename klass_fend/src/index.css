@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+    /* Your custom Apple-slick palette */
+    --color-brand-bg: #FFFFFA;
+    --color-brand-deep: #0D5C63;
+    --color-brand-teal: #247B7B;
+    --color-brand-muted: #44A1A0;
+    --color-brand-light: #78CDD7;
+
+    /* Custom Border Radii for that Apple look */
+    --radius-apple: 40px;
+    --radius-apple-inner: 20px;
+}

@@ -1,0 +1,128 @@
+import { useEffect, useState } from "react";
+import { UserPlus, UserMinus, Database, Users } from "lucide-react";
+import api from "../api/axios";
+import AddStudentsTab from "../components/GroupManagement/AddStudentsTab";
+import RemoveStudentsTab from "../components/GroupManagement/RemoveStudentsTab";
+import StudentListTab from "../components/GroupManagement/StudentListTab";
+
+export interface Student {
+  id: string;
+  userName: string;
+  email: string;
+}
+export interface Group {
+  id: number;
+  name: string;
+  groupStudents: { studentId: string }[];
+}
+
+const GroupManagement = () => {
+  const [activeTab, setActiveTab] = useState<"studentlist" | "add" | "remove">(
+    "studentlist",
+  );
+  const [students, setStudents] = useState<Student[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [studentRes, groupRes] = await Promise.all([
+        api.get("/user/GetAllStudents"),
+        api.get("/user/GetTeacherGroups"),
+      ]);
+      setStudents(studentRes.data || []);
+      setGroups(groupRes.data || []);
+    } catch (err) {
+      console.error("Sync error", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const tabs = [
+    { id: "studentlist", label: "Students", icon: Users },
+    { id: "add", label: "Add", icon: UserPlus },
+    { id: "remove", label: "Remove", icon: UserMinus },
+  ] as const;
+
+  return (
+    <div className="relative min-h-screen bg-brand-bg/30 mt-16 font-sans">
+      <div className="max-w-5xl mx-auto pt-4 px-4 md:px-0">
+        {/* NAVIGATION */}
+        <nav className="bg-white p-1.5 rounded-[2rem] shadow-xl border border-brand-light/20">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full sm:flex-1 flex items-center justify-center gap-3 py-4 rounded-[1.4rem] font-black text-[10px] uppercase tracking-[0.15em] transition-all duration-300 ${
+                    isActive
+                      ? "bg-brand-deep text-white scale-[1.02]"
+                      : "text-brand-muted hover:bg-brand-bg/50"
+                  }`}
+                >
+                  <Icon
+                    size={16}
+                    className={
+                      isActive ? "text-brand-teal" : "text-brand-muted"
+                    }
+                  />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* CONTENT */}
+        <div className="mt-10 pb-20">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-32">
+              <div className="relative flex items-center justify-center mb-6">
+                <div className="w-16 h-16 border-4 border-brand-light/10 border-t-brand-teal rounded-full animate-spin" />
+                <Database className="absolute text-brand-deep" size={20} />
+              </div>
+              <p className="font-black text-brand-deep/40 tracking-[0.4em] text-[10px] uppercase">
+                Refreshing Database
+              </p>
+            </div>
+          ) : (
+            <>
+              {activeTab === "studentlist" && (
+                <StudentListTab
+                  students={students}
+                  groups={groups}
+                  onUpdate={loadData} // Add this line
+                />
+              )}
+              {activeTab === "add" && (
+                <AddStudentsTab
+                  students={students}
+                  onUpdate={loadData}
+                  groups={groups}
+                />
+              )}
+              {activeTab === "remove" && (
+                <RemoveStudentsTab
+                  students={students}
+                  groups={groups}
+                  onUpdate={loadData}
+                />
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GroupManagement;
