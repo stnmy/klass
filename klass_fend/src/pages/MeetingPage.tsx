@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { JitsiMeeting } from "@jitsi/react-sdk";
 import {
   Monitor,
@@ -6,7 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Hand,
-} from "lucide-react"; // Added Hand icon
+} from "lucide-react";
 import api from "../api/axios";
 import { useUser } from "../context/userContext";
 import ClassroomControls from "./ClassroomControls";
@@ -15,6 +15,8 @@ import QuickControls from "../components/ClassManagement/QuickControls";
 const MeetingPage = () => {
   const { user } = useUser();
   const jitsiApi = useRef<any>(null);
+
+  // UI State
   const [isSharing, setIsSharing] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [jwt, setJwt] = useState("");
@@ -22,16 +24,14 @@ const MeetingPage = () => {
   const [loading, setLoading] = useState(true);
   const [participants, setParticipants] = useState<any[]>([]);
 
-  // --- TOAST STATE ---
+  // Local User State (Synced with Jitsi)
+  const [isAudioMuted, setIsAudioMuted] = useState(true); // Default to true as we force mute on join
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [isHandRaised, setIsHandRaised] = useState(false);
   const [activeToast, setActiveToast] = useState<{
     name: string;
     id: string;
   } | null>(null);
-
-  // --- JITSI STATUS STATES ---
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const [isVideoMuted, setIsVideoMuted] = useState(false);
-  const [isHandRaised, setIsHandRaised] = useState(false);
 
   const [roomData, setRoomData] = useState({
     roomName: "",
@@ -42,7 +42,32 @@ const MeetingPage = () => {
 
   const isTeacher = user?.role?.toLowerCase() === "teacher";
 
-  // --- EXTERNAL COMMAND HANDLERS ---
+  // --- SYNC FUNCTIONS ---
+
+  const updateParticipantList = useCallback(() => {
+    if (!jitsiApi.current) return;
+    const rawParticipants = jitsiApi.current.getParticipantsInfo();
+    const mapped = rawParticipants.map((p: any) => ({
+      id: p.participantId || p.id,
+      displayName: p.displayName || "Student",
+      muted: p.muted ?? p.isAudioMuted ?? false,
+      isLocal: p.local ?? false,
+    }));
+    setParticipants(mapped);
+  }, []);
+
+  const syncInitialState = useCallback(() => {
+    if (!jitsiApi.current) return;
+    // Capture the immediate state after Jitsi applies configOverwrite
+    setIsAudioMuted(jitsiApi.current.isAudioMuted());
+    setIsVideoMuted(jitsiApi.current.isVideoMuted());
+
+    const all = jitsiApi.current.getParticipantsInfo();
+    const me = all.find((p: any) => p.local);
+    if (me) setIsHandRaised(!!me.raisedHand);
+  }, []);
+
+  // --- COMMAND HANDLERS ---
   const handleToggleAudio = () =>
     jitsiApi.current?.executeCommand("toggleAudio");
   const handleToggleVideo = () =>
@@ -50,9 +75,12 @@ const MeetingPage = () => {
   const handleToggleHand = () =>
     jitsiApi.current?.executeCommand("toggleRaiseHand");
 
-  const handleMuteAll = () => {
+  const handleMuteAll = () =>
     jitsiApi.current?.executeCommand("muteEveryone", "audio");
-  };
+  const handleForceMute = (id: string) =>
+    jitsiApi.current?.executeCommand("muteRemoteParticipant", id, "audio");
+  const handleRequestUnmute = (id: string) =>
+    jitsiApi.current?.executeCommand("askToUnmute", id);
 
   useEffect(() => {
     (async () => {
@@ -83,7 +111,7 @@ const MeetingPage = () => {
 
   return (
     <div className="flex h-screen w-full bg-[#F8F9FA] pt-16 overflow-hidden transition-all duration-500">
-      {/* --- HAND RAISE TOAST --- */}
+      {/* HAND RAISE TOAST */}
       <div
         className={`fixed top-20 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 transform 
         ${activeToast ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0 pointer-events-none"}`}
@@ -100,7 +128,6 @@ const MeetingPage = () => {
       </div>
 
       <main className="flex-1 flex flex-col relative p-6 lg:p-8">
-        {/* Header Overlay */}
         <div className="absolute top-12 left-12 right-12 z-30 flex justify-between items-start pointer-events-none">
           <div className="bg-white/70 backdrop-blur-md border border-brand-light/20 px-3 py-1.5 rounded-full w-fit shadow-sm">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse mr-2 inline-block" />
@@ -109,11 +136,13 @@ const MeetingPage = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 pointer-events-auto">
             {joined && isTeacher && (
               <ClassroomControls
                 participants={participants}
                 onMuteAll={handleMuteAll}
+                onForceMute={handleForceMute}
+                onRequestUnmute={handleRequestUnmute}
                 localDisplayName={roomData.displayName}
               />
             )}
@@ -181,71 +210,60 @@ const MeetingPage = () => {
               onApiReady={(api) => {
                 jitsiApi.current = api;
 
-                api.on("screenSharingStatusChanged", (e: object) =>
-                  setIsSharing((e as any).on),
-                );
-                api.on("audioMuteStatusChanged", (e: object) =>
-                  setIsAudioMuted((e as any).muted),
-                );
-                api.on("videoMuteStatusChanged", (e: object) =>
-                  setIsVideoMuted((e as any).muted),
-                );
+                api.on("videoConferenceJoined", () => {
+                  syncInitialState();
+                  updateParticipantList();
+                });
 
-                // --- TOAST LOGIC INSIDE EVENT ---
-                api.on("raiseHandUpdated", (e: object) => {
-                  const data = e as any;
-                  const allParticipants = api.getParticipantsInfo();
-                  const localParticipant = allParticipants.find(
-                    (p: any) => p.local,
-                  );
+                if (isTeacher) {
+                  api.executeCommand("toggleModeration", true, "audio");
+                }
 
-                  // Update local UI button
-                  if (localParticipant && data.id === localParticipant.id) {
-                    setIsHandRaised(data.handRaised);
-                  }
+                api.on("audioMuteStatusChanged", (e: any) => {
+                  setIsAudioMuted(e.muted);
+                  updateParticipantList();
+                });
 
-                  // Trigger Toast if handRaised is true
-                  if (data.handRaised) {
-                    const participant = allParticipants.find(
-                      (p: any) => p.id === data.id,
-                    );
-                    const name = participant?.displayName || "Someone";
+                api.on("videoMuteStatusChanged", (e: any) => {
+                  setIsVideoMuted(e.muted);
+                  updateParticipantList();
+                });
 
-                    setActiveToast({ name, id: data.id });
-
-                    // Auto-hide after 4 seconds
+                api.on("raiseHandUpdated", (e: any) => {
+                  if (e.local) setIsHandRaised(e.handRaised);
+                  updateParticipantList();
+                  if (e.handRaised && !e.local) {
+                    // const all = api.getParticipantsInfo();
+                    setActiveToast({
+                      name: "Someone",
+                      id: e.id,
+                    });
                     setTimeout(() => setActiveToast(null), 4000);
                   }
                 });
 
-                const updateList = () => {
-                  const rawParticipants = api.getParticipantsInfo();
-                  const formatted = rawParticipants.map((p: any) => ({
-                    id: p.id,
-                    displayName: p.displayName || "Student",
-                  }));
-                  setParticipants(formatted);
-                };
+                api.on("participantJoined", updateParticipantList);
+                api.on("participantLeft", updateParticipantList);
+                api.on("displayNameChange", updateParticipantList);
+                api.on("screenSharingStatusChanged", (e: any) =>
+                  setIsSharing(e.on),
+                );
 
-                api.on("participantJoined", updateList);
-                api.on("participantLeft", updateList);
-                api.on("videoConferenceJoined", updateList);
-                api.on("displayNameChange", updateList);
-
-                api.executeCommand("subject", " ");
+                api.executeCommand("subject", "Classroom Session");
               }}
-              // ... rest of your config
               configOverwrite={{
+                // --- CORE CHANGES ---
+                startWithAudioMuted: true, // Everyone joins muted
+                startWithVideoMuted: false, // Set to true if cameras should be off by default
                 prejoinPageEnabled: false,
-                disableModeratorIndicator: true,
-                startWithAudioMuted: false,
-                disableInviteFunctions: true,
+                disableRemoteMute: false,
                 toolbarButtons: [
                   "microphone",
                   "camera",
                   "chat",
                   "raisehand",
                   "tileview",
+                  "participants-pane",
                   "settings",
                   "hangup",
                 ],

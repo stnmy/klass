@@ -6,7 +6,6 @@ import Navbar from "./components/navbar";
 // Page Imports
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
-import CreateStudent from "./components/GroupManagement/CreateStudentModal";
 import StudentList from "./pages/StudentList";
 import MeetingPage from "./pages/MeetingPage";
 import InitiateClass from "./pages/Initiate";
@@ -39,7 +38,6 @@ function App() {
 
               {/* Teacher Only Routes */}
               <Route element={<TeacherRoute />}>
-                <Route path="/createstudent" element={<CreateStudent />} />
                 <Route path="/students" element={<StudentList />} />
                 <Route path="/startClass" element={<InitiateClass />} />
                 <Route path="/group" element={<GroupManagement />} />

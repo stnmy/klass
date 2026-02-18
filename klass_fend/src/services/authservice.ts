@@ -6,7 +6,12 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
+    success: boolean;
     token: string;
+    error?: string;
+    userId: number;
+    userName: string;
+    role: string;
 }
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {

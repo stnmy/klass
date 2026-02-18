@@ -4,7 +4,6 @@ import {
   Search,
   PlusCircle,
   CheckCircle2,
-  Settings2,
   XCircle,
   UserPlus,
   X,

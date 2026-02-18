@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, X } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 interface Props {
   isOpen: boolean;

@@ -1,4 +1,6 @@
-﻿using klass_bend.Data;
+﻿using System.Security.Claims;
+using System.Text;
+using klass_bend.Data;
 using klass_bend.Interfaces;
 using klass_bend.Models;
 using klass_bend.Services;
@@ -6,8 +8,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,7 +53,7 @@ builder.Services.AddAuthentication(options =>
     {
         OnMessageReceived = context =>
         {
-            var token = context.Request.Cookies["auth_token"]; 
+            var token = context.Request.Cookies["auth_token"];
 
             if (!string.IsNullOrEmpty(token))
             {
@@ -88,11 +88,14 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); 
+              .AllowCredentials();
     });
 });
 
 var app = builder.Build();
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.UseCors("AllowReactDev");
 
@@ -103,10 +106,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication();   
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapFallbackToController("Index", "Fallback");
 
 using (var scope = app.Services.CreateScope())
 {

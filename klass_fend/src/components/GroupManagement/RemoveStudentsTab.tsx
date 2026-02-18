@@ -12,7 +12,7 @@ import api from "../../api/axios";
 import type { Student, Group } from "../../pages/GroupManagement";
 import StudentListCard from "./StudentListCard";
 import { MemberRow } from "./StudentRows";
-import DeleteGroupsModal from "./DeleteGroupsModal"; // Import your modal
+import DeleteGroupsModal from "./DeleteGroupsModal";
 
 interface Props {
   students: Student[];
@@ -32,12 +32,10 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
 
   // Modal States
   const [showDeleteGroupModal, setShowDeleteGroupModal] = useState(false);
-  const [showConfirmRemoval, setShowConfirmRemoval] = useState(false);
   const [showSuccessRemoval, setShowSuccessRemoval] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Dropdown click-outside logic
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (
@@ -56,7 +54,6 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
     [groups, selectedGroupId],
   );
 
-  // Filter: Members currently in the group (not in queue)
   const currentMembers = useMemo(() => {
     if (!activeGroup) return [];
     return students.filter((s) => {
@@ -71,7 +68,6 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
     });
   }, [activeGroup, students, activeSearch, studentIdsToRemove]);
 
-  // Filter: Removal Queue
   const removalQueue = useMemo(() => {
     return students.filter((s) => {
       const isQueued = studentIdsToRemove.includes(s.id);
@@ -93,17 +89,17 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
       setStudentIdsToRemove([]);
       onUpdate();
       setShowSuccessRemoval(true);
+      // Optional: Auto-hide success message after 3 seconds
+      setTimeout(() => setShowSuccessRemoval(false), 3000);
     } catch (err) {
       console.error(err);
     } finally {
       setIsProcessing(false);
-      setShowConfirmRemoval(false);
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
-      {/* --- GLOBAL DELETE GROUPS MODAL --- */}
       <DeleteGroupsModal
         isOpen={showDeleteGroupModal}
         onClose={() => setShowDeleteGroupModal(false)}
@@ -112,7 +108,7 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
         onUpdate={onUpdate}
       />
 
-      {/* --- SELECTOR & ACTIONS BAR --- */}
+      {/* Selector & Actions Bar */}
       <div className="flex flex-col md:flex-row md:items-end gap-4">
         <div className="flex-1 relative" ref={dropdownRef}>
           <label className="text-[10px] font-black uppercase text-brand-deep/40 ml-4 mb-2 flex items-center gap-2">
@@ -163,7 +159,6 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
           )}
         </div>
 
-        {/* This button is now ALWAYS enabled and opens the dedicated Modal */}
         <button
           onClick={() => setShowDeleteGroupModal(true)}
           className="h-[58px] px-8 bg-red-50 text-red-600 rounded-[1.5rem] border border-red-100 flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-red-600 hover:text-white shadow-sm"
@@ -173,7 +168,7 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
         </button>
       </div>
 
-      {/* --- CONTENT AREA --- */}
+      {/* Content Area */}
       {selectedGroupId ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           <StudentListCard
@@ -211,15 +206,22 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
             searchTerm={queueSearch}
             onSearchChange={setQueueSearch}
             footer={
-              <button
-                onClick={executeRemoval}
-                disabled={studentIdsToRemove.length === 0 || isProcessing}
-                className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl hover:bg-red-700 transition-all disabled:opacity-20 uppercase text-[10px] tracking-widest"
-              >
-                {isProcessing
-                  ? "Processing..."
-                  : `Confirm Removal (${studentIdsToRemove.length})`}
-              </button>
+              <div className="space-y-3">
+                {showSuccessRemoval && (
+                  <p className="text-[9px] text-center font-black text-green-500 uppercase tracking-widest animate-bounce">
+                    Removal Successful!
+                  </p>
+                )}
+                <button
+                  onClick={executeRemoval}
+                  disabled={studentIdsToRemove.length === 0 || isProcessing}
+                  className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl hover:bg-red-700 transition-all disabled:opacity-20 uppercase text-[10px] tracking-widest"
+                >
+                  {isProcessing
+                    ? "Processing..."
+                    : `Confirm Removal (${studentIdsToRemove.length})`}
+                </button>
+              </div>
             }
           >
             {removalQueue.length > 0 ? (
@@ -244,7 +246,6 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
           </StudentListCard>
         </div>
       ) : (
-        /* ... Placeholder stays the same ... */
         <div className="w-full py-32 text-center bg-white rounded-[2.5rem] border-2 border-dashed border-brand-light/20 flex flex-col items-center justify-center space-y-4">
           <div className="p-6 bg-brand-bg rounded-full text-brand-muted/30">
             <UserMinus size={48} strokeWidth={1} />
