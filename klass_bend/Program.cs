@@ -110,12 +110,40 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapFallbackToController("Index", "Fallback");
+// app.MapFallbackToController("Index", "Fallback");
 
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    await Seed.SeedAsync(services);
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        var db = services.GetRequiredService<ApplicationDbContext>();
+
+        // ❌ DO NOT auto-migrate in production (Serverless timeout issue)
+        // db.Database.Migrate();
+
+        // ✅ Ensure first JitsiSession has default email (lightweight check)
+        var firstSession = await db.JitsiSessions
+            .Where(s => s.Id == 1 && string.IsNullOrEmpty(s.UserEmail))
+            .FirstOrDefaultAsync();
+
+        if (firstSession != null)
+        {
+            firstSession.UserEmail = "teacher@gmail.com";
+            await db.SaveChangesAsync();
+        }
+
+        // ✅ Run seed AFTER DB is reachable
+        await Seed.SeedAsync(services);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Startup initialization failed.");
+        // Do NOT throw in production unless you want app to crash
+    }
 }
+
 
 app.Run();
