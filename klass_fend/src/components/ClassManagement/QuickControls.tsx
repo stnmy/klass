@@ -1,12 +1,23 @@
-import { Mic, MicOff, Video, VideoOff, Hand } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  Hand,
+  MonitorUp,
+  MonitorOff,
+} from "lucide-react";
 
 interface QuickControlsProps {
   isAudioMuted: boolean;
   isVideoMuted: boolean;
   isHandRaised: boolean;
+  isSharing: boolean;
+  showScreenShare: boolean;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
   onToggleHand: () => void;
+  onToggleShare: () => void;
 }
 
 const QuickControls = ({
@@ -16,12 +27,15 @@ const QuickControls = ({
   onToggleVideo,
   isHandRaised,
   onToggleHand,
+  isSharing,
+  showScreenShare,
+  onToggleShare,
 }: QuickControlsProps) => {
   const btnClass =
-    "p-3 rounded-xl transition-all active:scale-90 shadow-sm border focus:outline-none";
+    "p-3 rounded-xl transition-all active:scale-90 shadow-sm border focus:outline-none flex items-center justify-center";
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex gap-3 bg-white/80 backdrop-blur-md p-2 rounded-[1.5rem] border border-brand-light/20 shadow-xl pointer-events-auto">
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex gap-3 bg-white/80 backdrop-blur-md p-2 rounded-3xl border border-brand-light/20 shadow-xl pointer-events-auto">
       {/* Mic Control */}
       <button
         onClick={onToggleAudio}
@@ -47,6 +61,21 @@ const QuickControls = ({
       >
         {isVideoMuted ? <VideoOff size={20} /> : <Video size={20} />}
       </button>
+
+      {/* Screen Share Control (Conditional for Teacher) */}
+      {showScreenShare && (
+        <button
+          onClick={onToggleShare}
+          className={`${btnClass} ${
+            isSharing
+              ? "bg-brand-teal text-white border-brand-teal hover:bg-brand-teal/90"
+              : "bg-brand-bg border-brand-light/10 text-brand-deep hover:bg-white"
+          }`}
+          title={isSharing ? "Stop Sharing" : "Share Screen"}
+        >
+          {isSharing ? <MonitorOff size={20} /> : <MonitorUp size={20} />}
+        </button>
+      )}
 
       {/* Hand Control */}
       <button

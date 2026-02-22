@@ -10,8 +10,8 @@ interface Participant {
 interface Props {
   participants: Participant[];
   onMuteAll: () => void;
-  onForceMute: (participantId: string) => void; // Updated
-  onRequestUnmute: (participantId: string) => void; // Updated
+  onForceMute: (participantId: string) => void;
+  onRequestUnmute: (participantId: string) => void;
   localDisplayName?: string;
 }
 
@@ -25,7 +25,6 @@ const ClassroomControls = ({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter out the teacher (local user)
   const studentRoster = participants.filter(
     (p) => p.displayName?.toLowerCase() !== localDisplayName?.toLowerCase(),
   );
@@ -45,7 +44,7 @@ const ClassroomControls = ({
 
   return (
     <div className="relative pointer-events-auto" ref={dropdownRef}>
-      {/* TRIGGER BUTTON */}
+      {/* TRIGGER */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl transition-all border ${
@@ -72,10 +71,9 @@ const ClassroomControls = ({
         />
       </button>
 
-      {/* DROPDOWN MENU */}
+      {/* DROPDOWN */}
       {isOpen && (
-        <div className="absolute top-full mt-2 right-0 w-[340px] bg-white rounded-[1.5rem] shadow-2xl border border-brand-light/10 overflow-hidden z-[60] animate-in fade-in zoom-in-95 duration-200">
-          {/* HEADER */}
+        <div className="absolute top-full mt-2 right-0 w-85 bg-white rounded-3xl shadow-2xl border border-brand-light/10 overflow-hidden z-60 animate-in fade-in zoom-in-95 duration-200">
           <div className="p-4 bg-brand-bg/30 border-b border-brand-light/10 flex justify-between items-center">
             <span className="text-[9px] font-black text-brand-deep uppercase">
               Student Roster
@@ -92,7 +90,6 @@ const ClassroomControls = ({
             </button>
           </div>
 
-          {/* LIST AREA */}
           <div className="max-h-80 overflow-y-auto p-2 custom-scrollbar">
             {studentRoster.length === 0 ? (
               <div className="py-8 text-center opacity-40">
@@ -107,18 +104,15 @@ const ClassroomControls = ({
                   key={student.id}
                   className="flex items-center justify-between p-2 rounded-xl hover:bg-brand-bg/50 transition-colors group"
                 >
-                  <div className="flex items-center gap-3">
-                    {/* AVATAR & MUTE INDICATOR */}
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black bg-brand-teal/10 text-brand-teal relative">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[10px] font-black bg-brand-teal/10 text-brand-teal relative">
                       {student.displayName?.charAt(0).toUpperCase() || "S"}
                       {student.muted && (
                         <div className="absolute -top-0.5 -right-0.5 bg-red-500 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm" />
                       )}
                     </div>
-
-                    {/* NAME & STATUS */}
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-brand-deep truncate max-w-[100px]">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[10px] font-bold text-brand-deep truncate">
                         {student.displayName}
                       </span>
                       <div className="flex items-center gap-1">
@@ -130,29 +124,27 @@ const ClassroomControls = ({
                             student.muted ? "text-red-500" : "text-brand-teal"
                           }`}
                         >
-                          {student.muted ? "Muted" : "Speaking"}
+                          {student.muted ? "Muted & Locked" : "Speaking"}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* EXPLICIT ACTION BUTTONS */}
-                  <div className="flex items-center gap-2">
-                    {/* Force Mute Button */}
+                  {/* ACTION BUTTONS */}
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
-                      title="Force Mute"
+                      title="Force Mute & Lock"
                       onClick={() => onForceMute(student.id)}
-                      className={`p-2 rounded-lg transition-all border shadow-sm ${
+                      disabled={student.muted}
+                      className={`p-2 rounded-lg transition-all border shadow-sm active:scale-95 ${
                         student.muted
                           ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"
-                          : "bg-white border-red-100 text-red-500 hover:bg-red-500 hover:text-white active:scale-95"
+                          : "bg-white border-red-100 text-red-500 hover:bg-red-500 hover:text-white"
                       }`}
-                      disabled={student.muted}
                     >
                       <MicOff size={14} />
                     </button>
 
-                    {/* Request Unmute Button */}
                     <button
                       title="Invite to Speak"
                       onClick={() => onRequestUnmute(student.id)}
