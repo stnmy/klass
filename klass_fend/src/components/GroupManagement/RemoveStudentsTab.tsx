@@ -1,17 +1,21 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   UserMinus,
-  ChevronDown,
   RotateCcw,
   Trash2,
   Users,
-  Filter,
   UserX,
+  Layers,
 } from "lucide-react";
 import api from "../../api/axios";
 import type { Student, Group } from "../../pages/GroupManagement";
+
+// Internal Sub-Components
+import GroupSelector from "./GroupSelector";
 import StudentListCard from "./StudentListCard";
 import { MemberRow } from "./StudentRows";
+
+// Modal Components
 import DeleteGroupsModal from "./DeleteGroupsModal";
 
 interface Props {
@@ -21,10 +25,10 @@ interface Props {
 }
 
 const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
+  // Logic States
   const [selectedGroupId, setSelectedGroupId] = useState<number | "">("");
   const [studentIdsToRemove, setStudentIdsToRemove] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Search states
   const [activeSearch, setActiveSearch] = useState("");
@@ -33,21 +37,6 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
   // Modal States
   const [showDeleteGroupModal, setShowDeleteGroupModal] = useState(false);
   const [showSuccessRemoval, setShowSuccessRemoval] = useState(false);
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
 
   const activeGroup = useMemo(
     () => groups.find((g) => g.id === selectedGroupId),
@@ -89,7 +78,6 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
       setStudentIdsToRemove([]);
       onUpdate();
       setShowSuccessRemoval(true);
-      // Optional: Auto-hide success message after 3 seconds
       setTimeout(() => setShowSuccessRemoval(false), 3000);
     } catch (err) {
       console.error(err);
@@ -98,8 +86,15 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
     }
   };
 
+  // Standardized UI Classes
+  const labelBase =
+    "text-[10px] font-black uppercase tracking-[0.2em] text-brand-deep/40 ml-4 mb-2 flex items-center gap-2";
+
+  const actionButtonBase =
+    "h-[64px] flex items-center justify-center gap-3 px-8 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-[0.98] shadow-sm";
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
+    <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 transform-gpu backface-hidden">
       <DeleteGroupsModal
         isOpen={showDeleteGroupModal}
         onClose={() => setShowDeleteGroupModal(false)}
@@ -108,67 +103,38 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
         onUpdate={onUpdate}
       />
 
-      {/* Selector & Actions Bar */}
-      <div className="flex flex-col md:flex-row md:items-end gap-4">
-        <div className="flex-1 relative" ref={dropdownRef}>
-          <label className="text-[10px] font-black uppercase text-brand-deep/40 ml-4 mb-2 flex items-center gap-2">
-            <Filter size={12} /> Target Group
-          </label>
-          <button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`w-full bg-white px-6 py-4 rounded-[1.5rem] border transition-all flex items-center justify-between ${
-              isDropdownOpen
-                ? "border-brand-teal ring-4 ring-brand-teal/5"
-                : "border-brand-light/20 shadow-sm"
-            }`}
-          >
-            <span className="text-xs font-black uppercase tracking-widest text-brand-deep">
-              {activeGroup
-                ? `${activeGroup.name} — ${activeGroup.groupStudents.length} Members`
-                : "Select group to manage members..."}
-            </span>
-            <ChevronDown
-              className={`text-brand-muted transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
-              size={20}
+      {/* Header Controls Area - Standardized Alignment */}
+      <div className="flex flex-col md:flex-row items-end gap-4">
+        <div className="flex-1 w-full min-w-0">
+          <div className="relative">
+            <label className={labelBase}>
+              <Layers size={12} /> Target Group
+            </label>
+            <GroupSelector
+              groups={groups}
+              activeGroup={activeGroup}
+              onSelect={(id) => {
+                setSelectedGroupId(id);
+                setStudentIdsToRemove([]);
+                setActiveSearch("");
+                setQueueSearch("");
+              }}
             />
-          </button>
-
-          {isDropdownOpen && (
-            <div className="absolute z-50 w-full mt-2 bg-white rounded-[1.5rem] shadow-2xl border border-brand-light/10 overflow-hidden">
-              <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                {groups.map((g) => (
-                  <button
-                    key={g.id}
-                    className="w-full px-6 py-4 text-left hover:bg-brand-bg border-b border-brand-bg last:border-0 transition-colors"
-                    onClick={() => {
-                      setSelectedGroupId(g.id);
-                      setStudentIdsToRemove([]);
-                      setIsDropdownOpen(false);
-                    }}
-                  >
-                    <span className="font-black text-xs uppercase text-brand-deep block">
-                      {g.name}
-                    </span>
-                    <span className="text-[9px] text-brand-muted uppercase font-bold">
-                      {g.groupStudents.length} Students
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
         <button
           onClick={() => setShowDeleteGroupModal(true)}
-          className="h-[58px] px-8 bg-red-50 text-red-600 rounded-[1.5rem] border border-red-100 flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-red-600 hover:text-white shadow-sm"
+          className={`${actionButtonBase} bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white shrink-0 group`}
         >
-          <Trash2 size={18} />
+          <div className="p-2 rounded-xl bg-red-500/10 group-hover:bg-white/20 transition-colors">
+            <Trash2 size={18} />
+          </div>
           <span>Group Management</span>
         </button>
       </div>
 
-      {/* Content Area */}
+      {/* Main Content Grid - Standardized with Add Tab */}
       {selectedGroupId ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           <StudentListCard
@@ -179,19 +145,21 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
             onSearchChange={setActiveSearch}
           >
             {currentMembers.length > 0 ? (
-              currentMembers.map((s) => (
-                <div key={s.id} className="relative group">
-                  <MemberRow student={s} />
-                  <button
-                    onClick={() =>
-                      setStudentIdsToRemove((prev) => [...prev, s.id])
-                    }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <UserMinus size={16} />
-                  </button>
-                </div>
-              ))
+              <div className="space-y-1">
+                {currentMembers.map((s) => (
+                  <div key={s.id} className="relative group">
+                    <MemberRow student={s} />
+                    <button
+                      onClick={() =>
+                        setStudentIdsToRemove((prev) => [...prev, s.id])
+                      }
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <UserMinus size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             ) : (
               <EmptyState icon={<Users size={32} />} text="No members found" />
             )}
@@ -208,50 +176,52 @@ const RemoveStudentsTab = ({ students, groups, onUpdate }: Props) => {
             footer={
               <div className="space-y-3">
                 {showSuccessRemoval && (
-                  <p className="text-[9px] text-center font-black text-green-500 uppercase tracking-widest animate-bounce">
+                  <p className="text-[10px] text-center font-black text-green-500 uppercase tracking-widest animate-bounce">
                     Removal Successful!
                   </p>
                 )}
                 <button
                   onClick={executeRemoval}
                   disabled={studentIdsToRemove.length === 0 || isProcessing}
-                  className="w-full py-5 bg-red-600 text-white font-black rounded-2xl shadow-xl hover:bg-red-700 transition-all disabled:opacity-20 uppercase text-[10px] tracking-widest"
+                  className="w-full py-5 bg-red-600 text-white font-black rounded-[1.25rem] shadow-xl hover:bg-red-700 transition-all disabled:opacity-20 uppercase text-[10px] tracking-[0.2em]"
                 >
                   {isProcessing
-                    ? "Processing..."
+                    ? "Processing Queue..."
                     : `Confirm Removal (${studentIdsToRemove.length})`}
                 </button>
               </div>
             }
           >
             {removalQueue.length > 0 ? (
-              removalQueue.map((s) => (
-                <div key={s.id} className="relative group">
-                  <MemberRow student={s} />
-                  <button
-                    onClick={() =>
-                      setStudentIdsToRemove((prev) =>
-                        prev.filter((id) => id !== s.id),
-                      )
-                    }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black text-brand-muted hover:text-brand-deep bg-brand-bg rounded-lg opacity-0 group-hover:opacity-100 transition-all uppercase"
-                  >
-                    <RotateCcw size={12} /> Restore
-                  </button>
-                </div>
-              ))
+              <div className="space-y-1">
+                {removalQueue.map((s) => (
+                  <div key={s.id} className="relative group">
+                    <MemberRow student={s} />
+                    <button
+                      onClick={() =>
+                        setStudentIdsToRemove((prev) =>
+                          prev.filter((id) => id !== s.id),
+                        )
+                      }
+                      className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black text-brand-muted hover:text-brand-deep bg-brand-bg rounded-lg opacity-0 group-hover:opacity-100 transition-all uppercase tracking-widest"
+                    >
+                      <RotateCcw size={12} /> Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
             ) : (
               <EmptyState icon={<UserX size={32} />} text="Queue is empty" />
             )}
           </StudentListCard>
         </div>
       ) : (
-        <div className="w-full py-32 text-center bg-white rounded-[2.5rem] border-2 border-dashed border-brand-light/20 flex flex-col items-center justify-center space-y-4">
+        <div className="w-full py-24 bg-white rounded-[2.5rem] border-2 border-dashed border-brand-light/10 flex flex-col items-center justify-center space-y-4">
           <div className="p-6 bg-brand-bg rounded-full text-brand-muted/30">
             <UserMinus size={48} strokeWidth={1} />
           </div>
           <p className="text-brand-muted font-black uppercase text-[10px] tracking-[0.3em]">
-            No Group Selected
+            Select a group to manage
           </p>
         </div>
       )}
@@ -266,9 +236,9 @@ const EmptyState = ({
   icon: React.ReactNode;
   text: string;
 }) => (
-  <div className="h-full flex flex-col items-center justify-center opacity-30 text-center p-10">
+  <div className="h-48 flex flex-col items-center justify-center opacity-30 text-center">
     {icon}
-    <p className="text-[10px] font-black uppercase tracking-widest mt-2">
+    <p className="text-[10px] font-black uppercase tracking-[0.2em] mt-2">
       {text}
     </p>
   </div>

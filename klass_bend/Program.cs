@@ -110,7 +110,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-// app.MapFallbackToController("Index", "Fallback");
+app.MapFallbackToController("Index", "Fallback");
 
 using (var scope = app.Services.CreateScope())
 {
@@ -120,28 +120,49 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = services.GetRequiredService<ApplicationDbContext>();
+        var userManager = services.GetRequiredService<UserManager<User>>();
 
-        // ❌ DO NOT auto-migrate in production (Serverless timeout issue)
-        // db.Database.Migrate();
-
-        // ✅ Ensure first JitsiSession has default email (lightweight check)
-        var firstSession = await db.JitsiSessions
-            .Where(s => s.Id == 1 && string.IsNullOrEmpty(s.UserEmail))
-            .FirstOrDefaultAsync();
-
-        if (firstSession != null)
+        // 1. Ensure the database is actually there
+        if (await db.Database.CanConnectAsync())
         {
-            firstSession.UserEmail = "teacher@gmail.com";
-            await db.SaveChangesAsync();
-        }
+            // 2. Check if the 'AspNetUsers' table has any rows
+            // We use userManager.Users because it's the Identity standard
+            bool hasUsers = await userManager.Users.AnyAsync();
 
-        // ✅ Run seed AFTER DB is reachable
-        await Seed.SeedAsync(services);
+            if (!hasUsers)
+            {
+                logger.LogInformation("No users found in database. Seeding initial data...");
+
+                // If you are 100% sure your tables exist but are just empty:
+                await Seed.SeedAsync(services);
+
+                logger.LogInformation("Seeding completed successfully.");
+            }
+            else
+            {
+                logger.LogInformation("Database already contains data. Skipping seed.");
+            }
+
+            // 3. Your specific Jitsi Session logic
+            var firstSession = await db.JitsiSessions
+                .Where(s => s.Id == 1 && string.IsNullOrEmpty(s.UserEmail))
+                .FirstOrDefaultAsync();
+
+            if (firstSession != null)
+            {
+                firstSession.UserEmail = "teacher@gmail.com";
+                await db.SaveChangesAsync();
+            }
+        }
+        else
+        {
+            logger.LogError("Could not connect to the Azure Database. Check Firewall settings.");
+        }
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Startup initialization failed.");
-        // Do NOT throw in production unless you want app to crash
+        // This will catch the error if the table doesn't exist at all
+        logger.LogError(ex, "An error occurred during startup data check. You may need to run 'dotnet ef database update'.");
     }
 }
 

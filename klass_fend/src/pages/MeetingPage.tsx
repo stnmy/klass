@@ -31,6 +31,10 @@ const MeetingPage = () => {
     activeNotification,
     setActiveNotification,
     execute,
+    raisedHands,
+    setRaisedHands,
+    isStrictMode,
+    toggleStrictMode,
   } = useJitsi(isTeacher);
 
   useEffect(() => {
@@ -125,6 +129,12 @@ const MeetingPage = () => {
               {isTeacher && (
                 <ClassroomControls
                   participants={participants}
+                  raisedHands={raisedHands}
+                  isStrictMode={isStrictMode}
+                  onToggleStrictMode={(val) => toggleStrictMode(val)}
+                  onClearHighlight={(id) =>
+                    setRaisedHands((prev) => prev.filter((hid) => hid !== id))
+                  }
                   onMuteAll={() => execute("muteEveryone", "audio")}
                   onForceMute={(id) => {
                     execute("muteRemoteParticipant", id, "audio");
@@ -144,6 +154,7 @@ const MeetingPage = () => {
               isHandRaised={isHandRaised}
               isSharing={isSharing}
               showScreenShare={isTeacher}
+              isStrictMode={isStrictMode} // <--- This fixes the TypeScript error
               onToggleAudio={() => execute("toggleAudio")}
               onToggleVideo={() => execute("toggleVideo")}
               onToggleHand={() => execute("toggleRaiseHand")}

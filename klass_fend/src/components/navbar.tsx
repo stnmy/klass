@@ -1,26 +1,27 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../api/axios"; // Adjust this path to your axios instance
+import { useNavigate, Link, useLocation } from "react-router-dom";
+import { Users, Video, LogOut, LayoutDashboard } from "lucide-react";
+import api from "../api/axios";
 
 const Navbar = () => {
   const [user, setUser] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [hasActiveSession, setHasActiveSession] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const storedName = localStorage.getItem("user_name");
+    const storedRole = localStorage.getItem("user_role");
+
     setUser(storedName);
+    setRole(storedRole);
 
-    // Initial check for session status
-    if (storedName) {
-      checkSessionStatus();
-    }
+    if (storedName) checkSessionStatus();
 
-    // Poll every 30 seconds to catch when a teacher starts a class
     const interval = setInterval(() => {
-      if (localStorage.getItem("user_name")) {
-        checkSessionStatus();
-      }
+      if (localStorage.getItem("user_name")) checkSessionStatus();
     }, 30000);
 
     return () => clearInterval(interval);
@@ -29,10 +30,8 @@ const Navbar = () => {
   const checkSessionStatus = async () => {
     try {
       const response = await api.get("/user/SessionStatus");
-      // Matches your backend return: return Ok(new { status });
       setHasActiveSession(response.data.status);
     } catch (err) {
-      console.error("Session check failed", err);
       setHasActiveSession(false);
     }
   };
@@ -42,67 +41,118 @@ const Navbar = () => {
     window.location.href = "/login";
   };
 
+  const isActive = (path: string) => location.pathname === path;
+
+  // Added 'w-40' and 'justify-center' to ensure uniform width across all buttons
+  const navBtnBase =
+    "flex items-center justify-center gap-2 w-40 h-10 rounded-full text-[11px] font-black tracking-widest transition-all duration-300 transform active:scale-95";
+
   return (
     <nav className="fixed top-0 left-0 w-full bg-brand-bg/80 backdrop-blur-xl border-b border-brand-light/20 z-50">
       <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
-        {/* Brand */}
+        {/* Brand/Logo Section */}
         <div
-          className="text-2xl font-bold tracking-tighter text-brand-deep cursor-pointer"
+          className="group flex items-center gap-2 text-2xl font-bold tracking-tighter text-brand-deep cursor-pointer shrink-0"
           onClick={() => navigate("/dashboard")}
         >
-          Klass<span className="text-brand-muted">.</span>
+          <div className="p-1.5 bg-brand-deep rounded-lg group-hover:rotate-12 transition-transform duration-300 shadow-sm">
+            <LayoutDashboard size={18} className="text-white" />
+          </div>
+          <span>
+            Klass<span className="text-brand-teal">.</span>
+          </span>
         </div>
 
-        {/* Links & Session Action */}
-        <div className="flex items-center space-x-8">
+        {/* Actions Container */}
+        <div className="flex items-center space-x-3">
+          {/* TEACHER TOOLS SECTION */}
+          {user && role === "Teacher" && (
+            <div className="hidden lg:flex items-center gap-3">
+              {/* Manage Groups */}
+              <Link
+                to="/group"
+                className={`${navBtnBase} ${
+                  isActive("/group")
+                    ? "bg-brand-deep text-white shadow-lg shadow-brand-deep/20"
+                    : "bg-brand-deep/5 text-brand-deep hover:bg-brand-deep/10 border border-brand-deep/10"
+                }`}
+              >
+                <Users size={14} strokeWidth={2.5} />
+                MANAGE GROUPS
+              </Link>
+
+              {/* Start Class Button */}
+              <button
+                onClick={() => navigate("/startClass")}
+                className={`${navBtnBase} ${
+                  isActive("/startClass")
+                    ? "bg-brand-teal text-white shadow-lg shadow-brand-teal/20"
+                    : "bg-white border border-brand-light/60 text-brand-deep hover:border-brand-teal hover:text-brand-teal shadow-sm"
+                }`}
+              >
+                <Video size={14} strokeWidth={2.5} />
+                {"MANAGE CLASS"}
+              </button>
+            </div>
+          )}
+
+          {/* JOIN CLASS CTA - Now same width as Teacher buttons */}
           {user && (
             <button
               onClick={() => navigate("/meeting")}
               disabled={!hasActiveSession}
-              className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition-all duration-500 transform 
+              className={`${navBtnBase} duration-500 
                 ${
                   hasActiveSession
-                    ? "bg-brand-teal text-white shadow-lg shadow-brand-teal/20 hover:scale-105 active:scale-95 animate-pulse-subtle"
+                    ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-lg shadow-rose-500/30 hover:scale-105 animate-pulse-subtle"
                     : "bg-brand-light/20 text-brand-muted cursor-not-allowed opacity-60"
                 }`}
             >
-              <div
-                className={`w-2 h-2 rounded-full ${hasActiveSession ? "bg-white animate-ping" : "bg-brand-muted"}`}
-              />
-              {hasActiveSession ? "JOIN ACTIVE CLASS" : "NO LIVE CLASS"}
+              <div className="relative flex h-2 w-2 shrink-0">
+                {hasActiveSession && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    hasActiveSession ? "bg-white" : "bg-brand-muted"
+                  }`}
+                ></span>
+              </div>
+              <span>{hasActiveSession ? "JOIN CLASS" : "NOT AVAILABLE"}</span>
             </button>
           )}
 
-          <div className="hidden md:flex items-center space-x-10 text-[14px] font-medium text-brand-deep/70">
-            <a
-              href="/dashboard"
-              className="hover:text-brand-teal transition-colors"
-            >
-              Home
-            </a>
-          </div>
-
-          {/* User Actions */}
-          <div className="flex items-center space-x-6 border-l border-brand-light/30 pl-6">
+          {/* USER PROFILE & LOGOUT */}
+          <div className="flex items-center space-x-5 border-l border-brand-light/30 pl-6 ml-2 shrink-0">
             {user ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm font-semibold text-brand-deep">
-                  Hi, {user}
-                </span>
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col items-end">
+                  <p className="text-sm font-bold text-brand-deep leading-none mb-1 whitespace-nowrap">
+                    {user}
+                  </p>
+                  <p className="text-[9px] font-black bg-brand-deep/5 px-2 py-0.5 rounded text-brand-muted uppercase tracking-widest">
+                    {role}
+                  </p>
+                </div>
+
                 <button
                   onClick={handleLogout}
-                  className="px-5 py-1.5 border border-brand-deep/20 text-brand-deep text-xs font-bold rounded-full hover:bg-brand-deep hover:text-white transition-all duration-300"
+                  className="p-2.5 text-brand-deep/40 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all duration-300 group"
+                  title="Logout"
                 >
-                  Logout
+                  <LogOut
+                    size={18}
+                    className="group-hover:translate-x-0.5 transition-transform"
+                  />
                 </button>
               </div>
             ) : (
-              <a
-                href="/login"
-                className="px-6 py-2 bg-brand-deep text-white text-sm font-bold rounded-full hover:bg-brand-teal transition-all transform hover:scale-105 duration-300 shadow-lg shadow-brand-deep/10"
+              <button
+                onClick={() => navigate("/login")}
+                className="px-6 py-2 bg-brand-deep text-white text-sm font-bold rounded-full hover:bg-brand-teal transition-all shadow-lg shadow-brand-deep/10"
               >
                 Get Started
-              </a>
+              </button>
             )}
           </div>
         </div>

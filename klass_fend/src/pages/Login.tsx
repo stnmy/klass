@@ -27,8 +27,14 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-bg px-6">
+    /* Updated Container:
+       - min-h-[calc(100vh-80px)]: This ensures the page fills the screen perfectly 
+         while accounting for the Navbar height (80px including padding).
+       - flex flex-col justify-center: Keeps the card centered vertically in the available space.
+    */
+    <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center bg-brand-bg px-6 pb-12">
       <div className="w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-6 duration-1000 ease-out">
+        {/* Header Section */}
         <div className="text-center mb-10">
           <h2 className="text-4xl font-bold tracking-tight text-brand-deep mb-3">
             Sign in to Klass
@@ -50,6 +56,7 @@ const Login = () => {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 required
+                autoComplete="username"
                 className="w-full px-6 py-4 rounded-apple-inner bg-brand-bg/50 border border-brand-light/20 text-brand-deep placeholder-brand-muted/40 focus:outline-none focus:ring-4 focus:ring-brand-light/10 focus:border-brand-muted transition-all duration-300"
                 placeholder="johndoe"
               />
@@ -64,6 +71,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 className="w-full px-6 py-4 rounded-apple-inner bg-brand-bg/50 border border-brand-light/20 text-brand-deep placeholder-brand-muted/40 focus:outline-none focus:ring-4 focus:ring-brand-light/10 focus:border-brand-muted transition-all duration-300"
                 placeholder="••••••••"
               />
@@ -85,6 +93,8 @@ const Login = () => {
             </button>
           </form>
         </div>
+
+        {/* Footer Link */}
         <p className="mt-10 text-center text-brand-muted/80 text-sm font-medium">
           Don't have an account?{" "}
           <button className="text-brand-deep font-bold hover:underline">

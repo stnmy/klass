@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Users, ChevronDown, CheckCircle2, ArrowRight } from "lucide-react";
+import { Users, ChevronDown, CheckCircle2 } from "lucide-react";
 import { type Group } from "../../pages/GroupManagement";
 
 interface GroupSelectorProps {
@@ -32,12 +32,6 @@ const GroupSelector = ({
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Label */}
-      <label className="text-[10px] font-black uppercase text-brand-deep/40 ml-4 mb-2 flex items-center gap-2">
-        <ArrowRight size={12} /> Target Group
-      </label>
-
-      {/* Main Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -63,7 +57,7 @@ const GroupSelector = ({
                 activeGroup ? "text-brand-deep" : "text-brand-muted"
               }`}
             >
-              {activeGroup ? activeGroup.name : "Select Target Group"}
+              {activeGroup ? activeGroup.name : "Select Group"}
             </p>
             {activeGroup && (
               <p className="text-[10px] font-bold text-brand-teal uppercase">

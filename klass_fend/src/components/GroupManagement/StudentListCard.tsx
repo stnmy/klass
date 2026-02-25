@@ -6,12 +6,13 @@ interface CardProps {
   count: number;
   countLabel?: string;
   icon: ReactNode;
-  searchTerm: string;
-  onSearchChange: (val: string) => void;
+  searchTerm?: string; // Made optional since hideSearch might be true
+  onSearchChange?: (val: string) => void; // Made optional
   children: ReactNode;
   isPrimary?: boolean;
   footer?: ReactNode;
-  headerAction?: ReactNode; // Added this
+  headerAction?: ReactNode;
+  hideSearch?: boolean; // Added this property
 }
 
 const StudentListCard = ({
@@ -19,12 +20,13 @@ const StudentListCard = ({
   count,
   countLabel = "",
   icon,
-  searchTerm,
+  searchTerm = "",
   onSearchChange,
   children,
   isPrimary = false,
   footer,
-  headerAction, // Added this
+  headerAction,
+  hideSearch = false, // Default to false
 }: CardProps) => {
   return (
     <div
@@ -37,7 +39,9 @@ const StudentListCard = ({
       <div
         className={`p-5 border-b ${isPrimary ? "bg-brand-teal/5" : "bg-brand-bg/10"}`}
       >
-        <div className="flex justify-between items-center mb-3">
+        <div
+          className={`flex justify-between items-center ${hideSearch ? "" : "mb-3"}`}
+        >
           <div className="flex items-center gap-3">
             <div
               className={`w-7 h-7 rounded-lg flex items-center justify-center ${
@@ -61,23 +65,25 @@ const StudentListCard = ({
           </span>
         </div>
 
-        {/* Updated Search Bar Area to accommodate the button */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted"
-            />
-            <input
-              type="text"
-              placeholder="Filter list..."
-              className="w-full pl-9 pr-4 py-2 bg-white border border-brand-light/20 rounded-xl text-xs outline-none focus:ring-2 ring-brand-teal/5"
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
+        {/* Conditionally render search bar area */}
+        {!hideSearch && (
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted"
+              />
+              <input
+                type="text"
+                placeholder="Filter list..."
+                className="w-full pl-9 pr-4 py-2 bg-white border border-brand-light/20 rounded-xl text-xs outline-none focus:ring-2 ring-brand-teal/5"
+                value={searchTerm}
+                onChange={(e) => onSearchChange?.(e.target.value)}
+              />
+            </div>
+            {headerAction && <div className="shrink-0">{headerAction}</div>}
           </div>
-          {headerAction && <div className="shrink-0">{headerAction}</div>}
-        </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto divide-y divide-brand-bg/50 px-2 custom-scrollbar">

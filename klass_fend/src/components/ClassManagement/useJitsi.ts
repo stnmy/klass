@@ -6,9 +6,11 @@ export const useJitsi = (isTeacher: boolean) => {
     const [isAudioMuted, setIsAudioMuted] = useState(true);
     const [isVideoMuted, setIsVideoMuted] = useState(true);
     const [isHandRaised, setIsHandRaised] = useState(false);
-    const [activeToast, setActiveToast] = useState<{ name: string; id: string } | null>(null);
     const [isSharing, setIsSharing] = useState(false);
+    const [isStrictMode, setIsStrictMode] = useState(false);
 
+    const [activeToast, setActiveToast] = useState<{ name: string; id: string } | null>(null);
+    const [raisedHands, setRaisedHands] = useState<string[]>([]);
     const [activeNotification, setActiveNotification] = useState<{
         type: "unmute-request" | "muted-by-teacher";
         visible: boolean;
@@ -17,13 +19,22 @@ export const useJitsi = (isTeacher: boolean) => {
     const updateParticipantList = useCallback(() => {
         if (!jitsiApi.current) return;
         const raw = jitsiApi.current.getParticipantsInfo();
-        setParticipants(raw.map((p: any) => ({
-            id: p.participantId || p.id,
-            displayName: p.displayName || "Student",
-            muted: p.muted ?? p.isAudioMuted ?? false,
-            isLocal: p.local ?? false,
-        })));
+        setParticipants(
+            raw.map((p: any) => ({
+                id: p.participantId || p.id,
+                displayName: p.displayName || "Student",
+                muted: p.muted ?? p.isAudioMuted ?? false,
+                isLocal: p.local ?? false,
+            }))
+        );
     }, []);
+
+    const toggleStrictMode = useCallback((enabled: boolean) => {
+        if (!jitsiApi.current || !isTeacher) return;
+        setIsStrictMode(enabled);
+        jitsiApi.current.executeCommand("toggleModeration", enabled, "audio");
+        jitsiApi.current.executeCommand("toggleModeration", enabled, "video");
+    }, [isTeacher]);
 
     const onApiReady = (api: any) => {
         jitsiApi.current = api;
@@ -32,10 +43,22 @@ export const useJitsi = (isTeacher: boolean) => {
             setIsAudioMuted(api.isAudioMuted());
             setIsVideoMuted(api.isVideoMuted());
             updateParticipantList();
+        });
 
-            if (isTeacher) {
-                api.executeCommand("toggleModeration", true, "audio");
-                api.executeCommand("toggleModeration", true, "video");
+        // --- MODERATION LOGIC ---
+
+        // Listen for when the room moderation status changes (Strict Mode ON/OFF)
+        api.addListener("moderationStatusChanged", (data: any) => {
+            if (data.mediaType === "audio") {
+                setIsStrictMode(data.enabled);
+
+                // If I am a student and the teacher enables strict mode, 
+                // I am force-muted by the system.
+                if (!isTeacher && data.enabled) {
+                    setIsAudioMuted(true);
+                    setActiveNotification({ type: "muted-by-teacher", visible: true });
+                    setTimeout(() => setActiveNotification(null), 4000);
+                }
             }
         });
 
@@ -52,18 +75,10 @@ export const useJitsi = (isTeacher: boolean) => {
             }
         });
 
+        // --- UI SYNC LOGIC ---
+
         api.addListener("audioMuteStatusChanged", (e: any) => {
-            const wasUnmuted = !isAudioMuted;
             setIsAudioMuted(e.muted);
-
-            if (e.muted && wasUnmuted && !isTeacher) {
-                setActiveNotification((prev) =>
-                    prev?.type === "muted-by-teacher" ? prev : { type: "muted-by-teacher", visible: true }
-                );
-                setTimeout(() => setActiveNotification(null), 4000);
-            }
-
-            if (!e.muted) setActiveNotification(null);
             updateParticipantList();
         });
 
@@ -71,48 +86,58 @@ export const useJitsi = (isTeacher: boolean) => {
             setIsVideoMuted(e.muted);
         });
 
-        // --- UPDATED HAND RAISED LOGIC USING ID ---
         api.addListener("raiseHandUpdated", (e: any) => {
             const isRaised = e.handRaised > 0;
-            const pId = e.id; // Unique Jitsi ID
+            const pId = e.id;
+            const isMe = pId === api._myID || e.local === true;
 
-            // // Update local tracking map immediately
-            // setRaisedHandsMap(prev => ({ ...prev, [pId]: isRaised }));
-
-            // 1. Blind the local user to their own hand
-            if (pId === api._myID || e.local) {
-                setIsHandRaised(false);
-            }
-            // 2. Teacher sees Toast with the exact ID
-            else if (isTeacher && isRaised) {
-                const rawParticipants = api.getParticipantsInfo();
-                const student = rawParticipants.find((p: any) => (p.participantId || p.id) === pId);
-
-                // Show ID alongside name (or just ID if name is null)
-                const identifier = student?.displayName ? `${student.displayName} (${pId})` : `User ID: ${pId}`;
-
-                setActiveToast({ name: identifier, id: pId });
-                setTimeout(() => setActiveToast(null), 5000);
+            if (isMe) {
+                setIsHandRaised(isRaised);
+            } else if (isTeacher) {
+                if (isRaised) {
+                    setRaisedHands((prev) => Array.from(new Set([...prev, pId])));
+                    const rawParticipants = api.getParticipantsInfo();
+                    const student = rawParticipants.find((p: any) => (p.participantId || p.id) === pId);
+                    const name = student?.displayName || "Student";
+                    setActiveToast({ name, id: pId });
+                    setTimeout(() => setActiveToast(null), 5000);
+                } else {
+                    setRaisedHands((prev) => prev.filter((id) => id !== pId));
+                }
             }
             updateParticipantList();
         });
 
-        // Syncs the 'isSharing' state whenever screen sharing is toggled 
-        // via external button OR internal Jitsi toolbar
         api.addListener("screenSharingStatusChanged", (e: any) => {
             setIsSharing(e.on);
         });
 
         api.addListener("participantJoined", updateParticipantList);
-        api.addListener("participantLeft", updateParticipantList);
+        api.addListener("participantLeft", (e: any) => {
+            setRaisedHands((prev) => prev.filter((id) => id !== e.id));
+            updateParticipantList();
+        });
         api.addListener("displayNameChange", updateParticipantList);
     };
 
-    const execute = (cmd: string, ...args: any[]) => jitsiApi.current?.executeCommand(cmd, ...args);
+    const execute = (cmd: string, ...args: any[]) => {
+        jitsiApi.current?.executeCommand(cmd, ...args);
+    };
 
     return {
-        onApiReady, participants, isAudioMuted, isVideoMuted,
-        isHandRaised, activeToast, isSharing,
-        activeNotification, setActiveNotification, execute
+        onApiReady,
+        participants,
+        isAudioMuted,
+        isVideoMuted,
+        isHandRaised,
+        activeToast,
+        isSharing,
+        isStrictMode,
+        toggleStrictMode,
+        activeNotification,
+        setActiveNotification,
+        execute,
+        raisedHands,
+        setRaisedHands,
     };
 };

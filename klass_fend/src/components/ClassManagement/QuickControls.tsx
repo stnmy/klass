@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Mic,
   MicOff,
@@ -14,6 +15,7 @@ interface QuickControlsProps {
   isHandRaised: boolean;
   isSharing: boolean;
   showScreenShare: boolean;
+  isStrictMode: boolean; // Kept for logic if needed elsewhere
   onToggleAudio: () => void;
   onToggleVideo: () => void;
   onToggleHand: () => void;
@@ -31,12 +33,28 @@ const QuickControls = ({
   showScreenShare,
   onToggleShare,
 }: QuickControlsProps) => {
+  const [localHandRaised, setLocalHandRaised] = useState(isHandRaised);
+
+  useEffect(() => {
+    setLocalHandRaised(isHandRaised);
+  }, [isHandRaised]);
+
+  const handleHandClick = () => {
+    setLocalHandRaised(!localHandRaised);
+    onToggleHand();
+  };
+
+  const iconProps = {
+    size: 20,
+    strokeWidth: 2.2,
+  };
+
   const btnClass =
-    "p-3 rounded-xl transition-all active:scale-90 shadow-sm border focus:outline-none flex items-center justify-center";
+    "p-3 rounded-xl transition-all duration-200 active:scale-95 shadow-sm border focus:outline-none flex items-center justify-center cursor-pointer";
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex gap-3 bg-white/80 backdrop-blur-md p-2 rounded-3xl border border-brand-light/20 shadow-xl pointer-events-auto">
-      {/* Mic Control */}
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex gap-3 bg-white/90 backdrop-blur-md p-2 rounded-3xl border border-brand-light/20 shadow-2xl pointer-events-auto">
+      {/* Mic Control - Always clickable */}
       <button
         onClick={onToggleAudio}
         className={`${btnClass} ${
@@ -44,12 +62,11 @@ const QuickControls = ({
             ? "bg-red-50 border-red-100 text-red-500 hover:bg-red-100"
             : "bg-brand-bg border-brand-light/10 text-brand-deep hover:bg-white"
         }`}
-        title={isAudioMuted ? "Unmute Microphone" : "Mute Microphone"}
       >
-        {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
+        {isAudioMuted ? <MicOff {...iconProps} /> : <Mic {...iconProps} />}
       </button>
 
-      {/* Video Control */}
+      {/* Video Control - Always clickable */}
       <button
         onClick={onToggleVideo}
         className={`${btnClass} ${
@@ -57,37 +74,47 @@ const QuickControls = ({
             ? "bg-red-50 border-red-100 text-red-500 hover:bg-red-100"
             : "bg-brand-bg border-brand-light/10 text-brand-deep hover:bg-white"
         }`}
-        title={isVideoMuted ? "Start Video" : "Stop Video"}
       >
-        {isVideoMuted ? <VideoOff size={20} /> : <Video size={20} />}
+        {isVideoMuted ? <VideoOff {...iconProps} /> : <Video {...iconProps} />}
       </button>
 
-      {/* Screen Share Control (Conditional for Teacher) */}
+      {/* Screen Share */}
       {showScreenShare && (
         <button
           onClick={onToggleShare}
           className={`${btnClass} ${
             isSharing
-              ? "bg-brand-teal text-white border-brand-teal hover:bg-brand-teal/90"
+              ? "bg-brand-teal text-white border-brand-teal shadow-md"
               : "bg-brand-bg border-brand-light/10 text-brand-deep hover:bg-white"
           }`}
-          title={isSharing ? "Stop Sharing" : "Share Screen"}
         >
-          {isSharing ? <MonitorOff size={20} /> : <MonitorUp size={20} />}
+          {isSharing ? (
+            <MonitorOff {...iconProps} />
+          ) : (
+            <MonitorUp {...iconProps} />
+          )}
         </button>
       )}
 
       {/* Hand Control */}
       <button
-        onClick={onToggleHand}
-        className={`${btnClass} ${
-          isHandRaised
-            ? "bg-yellow-50 border-yellow-200 text-yellow-600 hover:bg-yellow-100"
+        onClick={handleHandClick}
+        className={`${btnClass} relative overflow-hidden transition-all duration-300 ${
+          localHandRaised
+            ? "bg-brand-deep border-brand-deep text-white shadow-lg scale-105"
             : "bg-brand-bg border-brand-light/10 text-brand-deep hover:bg-white"
         }`}
-        title={isHandRaised ? "Lower Hand" : "Raise Hand"}
       >
-        <Hand size={20} fill={isHandRaised ? "currentColor" : "none"} />
+        <Hand
+          {...iconProps}
+          fill={localHandRaised ? "white" : "none"}
+          className={`transition-all duration-300 ${
+            localHandRaised ? "rotate-[15deg] scale-110" : ""
+          }`}
+        />
+        {localHandRaised && (
+          <span className="absolute inset-0 bg-white/10 animate-pulse pointer-events-none" />
+        )}
       </button>
     </div>
   );
