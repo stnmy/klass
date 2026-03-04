@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace klass_bend.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class SqlServerInitial : Migration
+    public partial class ClassroomStateFix : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -55,6 +55,20 @@ namespace klass_bend.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ClassroomState",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    FocusMode = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsLocked = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ClassroomState", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -228,6 +242,11 @@ namespace klass_bend.Data.Migrations
                 });
 
             migrationBuilder.InsertData(
+                table: "ClassroomState",
+                columns: new[] { "Id", "FocusMode", "IsLocked" },
+                values: new object[] { 1, "default", false });
+
+            migrationBuilder.InsertData(
                 table: "JitsiSessions",
                 columns: new[] { "Id", "IsOccupied", "JitsiUserStaticId", "JoinedAt", "UserEmail" },
                 values: new object[,]
@@ -344,6 +363,9 @@ namespace klass_bend.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetUserTokens");
+
+            migrationBuilder.DropTable(
+                name: "ClassroomState");
 
             migrationBuilder.DropTable(
                 name: "GroupStudents");

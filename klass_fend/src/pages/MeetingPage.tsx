@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { Monitor, Hand, Mic, MicOff, X } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Monitor, Mic, MicOff, X, Lock, Unlock, Loader2 } from "lucide-react";
 import api from "../api/axios";
 import { useUser } from "../context/userContext";
 import { useJitsi } from "../components/ClassManagement/useJitsi";
+import { useClassroomSignalR } from "../components/useClassroomSignalR";
 import ClassroomControls from "./ClassroomControls";
 import QuickControls from "../components/ClassManagement/QuickControls";
 import ClassroomSidebar from "../components/ClassManagement/ClassroomSidebar";
@@ -13,10 +14,18 @@ const MeetingPage = () => {
   const [layout, setLayout] = useState<"split" | "min-video" | "min-workspace">(
     "split",
   );
-
   const [roomData, setRoomData] = useState<any>(null);
   const [jwt, setJwt] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSyncingLock, setIsSyncingLock] = useState(false);
+
+  // Ref to prevent API calls on the very first mount/initial load
+  const isInitialMount = useRef(true);
+
+  const [classroomState, setClassroomState] = useState({
+    focusMode: "default",
+    isLocked: false,
+  });
 
   const isTeacher = user?.role?.toLowerCase() === "teacher";
 
@@ -26,7 +35,6 @@ const MeetingPage = () => {
     isAudioMuted,
     isVideoMuted,
     isHandRaised,
-    activeToast,
     isSharing,
     activeNotification,
     setActiveNotification,
@@ -37,33 +45,126 @@ const MeetingPage = () => {
     toggleStrictMode,
   } = useJitsi(isTeacher);
 
+  // Helper to translate backend strings to layout types
+  const applyFocusMode = useCallback((mode: string) => {
+    const m = mode.toLowerCase();
+    if (m === "jitsi") setLayout("min-workspace");
+    else if (m === "class") setLayout("min-video");
+    else setLayout("split");
+  }, []);
+
+  useClassroomSignalR(
+    useCallback(
+      (mode: string) => {
+        if (!isTeacher) {
+          applyFocusMode(mode);
+        }
+        setClassroomState((prev) => ({ ...prev, focusMode: mode }));
+      },
+      [isTeacher, applyFocusMode],
+    ),
+
+    useCallback(
+      (isLocked: boolean, focusMode: string) => {
+        setClassroomState({ isLocked, focusMode });
+        if (!isTeacher && isLocked) {
+          applyFocusMode(focusMode);
+        }
+      },
+      [isTeacher, applyFocusMode],
+    ),
+  );
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (isTeacher && classroomState.isLocked) {
+      const syncFocus = async () => {
+        let mode = "default";
+        if (layout === "min-workspace") mode = "jitsi";
+        if (layout === "min-video") mode = "class";
+
+        try {
+          await api.post("/class/focus", JSON.stringify(mode), {
+            headers: { "Content-Type": "application/json" },
+          });
+          setClassroomState((prev) => ({ ...prev, focusMode: mode }));
+        } catch (err) {
+          console.error("Failed to sync focus mode", err);
+        }
+      };
+      syncFocus();
+    }
+  }, [layout, classroomState.isLocked, isTeacher]);
+
+  const handleToggleLock = async () => {
+    const newLockStatus = !classroomState.isLocked;
+    setIsSyncingLock(true);
+    try {
+      const response = await api.post("/class/lock", newLockStatus, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (response.status === 200) {
+        setClassroomState((prev) => ({ ...prev, isLocked: newLockStatus }));
+
+        if (newLockStatus) {
+          let mode = "default";
+          if (layout === "min-workspace") mode = "jitsi";
+          if (layout === "min-video") mode = "class";
+          await api.post("/class/focus", JSON.stringify(mode), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update lock status", err);
+    } finally {
+      setIsSyncingLock(false);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/user/GetClassroomAccess");
-        if (res.status === 200) {
-          setJwt(res.data.token);
-          setRoomData(res.data);
+        const [accessRes, stateRes] = await Promise.all([
+          api.get("/user/GetClassroomAccess"),
+          api.get("/class/state"),
+        ]);
+
+        if (accessRes.status === 200) {
+          setJwt(accessRes.data.token);
+          setRoomData(accessRes.data);
+        }
+
+        if (stateRes.status === 200) {
+          const data = stateRes.data;
+          setClassroomState(data);
+          if (data.isLocked && !isTeacher) {
+            applyFocusMode(data.focusMode);
+          }
         }
       } catch (err) {
-        console.error("Access Error", err);
+        console.error("Initialization Error", err);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [applyFocusMode, isTeacher]);
 
   if (loading) return <LoadingScreen />;
   if (!roomData)
     return (
-      <div className="h-screen flex items-center justify-center bg-brand-bg text-brand-deep font-black uppercase">
+      <div className="h-screen flex items-center justify-center bg-brand-bg text-brand-deep font-black uppercase tracking-widest">
         Access Denied
       </div>
     );
 
   return (
     <div className="relative flex h-screen w-full bg-[#F8F9FA] pt-16 overflow-hidden">
-      {/* --- NOTIFICATIONS --- */}
       <div className="fixed top-24 left-1/2 -translate-x-1/2 z-10000 flex flex-col gap-3 items-center w-full max-w-md px-4 pointer-events-none">
         {activeNotification?.visible && (
           <div
@@ -98,20 +199,8 @@ const MeetingPage = () => {
             </button>
           </div>
         )}
-        {activeToast && (
-          <div className="bg-white border border-yellow-200 shadow-xl rounded-2xl px-6 py-3 flex items-center gap-3 animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
-            <Hand size={18} className="text-yellow-600" fill="currentColor" />
-            <p className="text-sm font-bold text-brand-deep">
-              <span className="text-yellow-600 font-black">
-                {activeToast.name}
-              </span>{" "}
-              raised their hand
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* --- WORKSPACE (LEFT) --- */}
       <main
         className={`relative flex flex-col transition-all duration-700 ease-in-out border-r border-brand-light/10 ${layout === "min-workspace" ? "w-17.5 p-0 overflow-hidden" : "flex-1 p-6 lg:p-8"}`}
       >
@@ -125,24 +214,63 @@ const MeetingPage = () => {
                 Live Session
               </span>
             </div>
-            <div className="pointer-events-auto flex gap-3">
+
+            <div className="pointer-events-auto flex gap-3 items-center">
               {isTeacher && (
-                <ClassroomControls
-                  participants={participants}
-                  raisedHands={raisedHands}
-                  isStrictMode={isStrictMode}
-                  onToggleStrictMode={(val) => toggleStrictMode(val)}
-                  onClearHighlight={(id) =>
-                    setRaisedHands((prev) => prev.filter((hid) => hid !== id))
-                  }
-                  onMuteAll={() => execute("muteEveryone", "audio")}
-                  onForceMute={(id) => {
-                    execute("muteRemoteParticipant", id, "audio");
-                    execute("rejectModeration", id, "audio");
-                  }}
-                  onRequestUnmute={(id) => execute("askToUnmute", id)}
-                  localDisplayName={roomData.displayName}
-                />
+                <>
+                  <button
+                    onClick={handleToggleLock}
+                    disabled={isSyncingLock}
+                    className={`group flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300 shadow-sm ${classroomState.isLocked ? "bg-red-50 border-red-200 text-red-600" : "bg-white border-brand-light/20 text-brand-deep hover:bg-brand-bg"}`}
+                  >
+                    {isSyncingLock ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : classroomState.isLocked ? (
+                      <Lock size={14} />
+                    ) : (
+                      <Unlock
+                        size={14}
+                        className="text-gray-400 group-hover:text-brand-deep"
+                      />
+                    )}
+                    <span className="text-[10px] font-black uppercase tracking-tight">
+                      {classroomState.isLocked ? "UI Locked" : "UI Open"}
+                    </span>
+                    <div
+                      className={`ml-1 w-8 h-4 rounded-full relative transition-colors duration-300 ${classroomState.isLocked ? "bg-red-500" : "bg-gray-200"}`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-300 ${classroomState.isLocked ? "left-4.5" : "left-0.5"}`}
+                      />
+                    </div>
+                  </button>
+
+                  <ClassroomControls
+                    participants={participants}
+                    raisedHands={raisedHands}
+                    isStrictMode={isStrictMode}
+                    onToggleStrictMode={(val) => toggleStrictMode(val)}
+                    onClearHighlight={(id) =>
+                      setRaisedHands((prev) => prev.filter((hid) => hid !== id))
+                    }
+                    onMuteAll={() => execute("muteEveryone", "audio")}
+                    onForceMute={(id) => {
+                      execute("muteRemoteParticipant", id, "audio");
+                      execute("rejectModeration", id, "audio");
+                    }}
+                    onRequestUnmute={(id) => execute("askToUnmute", id)}
+                    localDisplayName={roomData.displayName}
+                  />
+                </>
+              )}
+
+              {!isTeacher && classroomState.isLocked && (
+                <div className="bg-gray-100 text-gray-500 px-4 py-2 rounded-full border border-gray-200 flex items-center gap-2">
+                  <Lock size={14} />
+                  <span className="text-[10px] font-black uppercase tracking-tight">
+                    Locked
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -154,7 +282,7 @@ const MeetingPage = () => {
               isHandRaised={isHandRaised}
               isSharing={isSharing}
               showScreenShare={isTeacher}
-              isStrictMode={isStrictMode} // <--- This fixes the TypeScript error
+              isStrictMode={isStrictMode}
               onToggleAudio={() => execute("toggleAudio")}
               onToggleVideo={() => execute("toggleVideo")}
               onToggleHand={() => execute("toggleRaiseHand")}
@@ -174,7 +302,6 @@ const MeetingPage = () => {
         </div>
       </main>
 
-      {/* --- JITSI (RIGHT) --- */}
       <ClassroomSidebar
         layout={layout}
         setLayout={setLayout}
@@ -183,6 +310,7 @@ const MeetingPage = () => {
         roomData={roomData}
         onApiReady={onApiReady}
         isTeacher={isTeacher}
+        isLocked={classroomState.isLocked}
       />
     </div>
   );

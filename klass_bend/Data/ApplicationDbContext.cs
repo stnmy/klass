@@ -19,7 +19,7 @@ namespace klass_bend.Data
         public DbSet<JitsiSession> JitsiSessions { get; set; }
         public DbSet<Group> Groups { get; set; }
         public DbSet<GroupStudent> GroupStudents { get; set; }
-
+        public DbSet<ClassroomState> ClassroomState { get; set; }
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -54,6 +54,13 @@ namespace klass_bend.Data
             builder.Entity<GroupStudent>()
                 .HasIndex(gs => new { gs.GroupId, gs.StudentId })
                 .IsUnique();
+
+            builder.Entity<ClassroomState>().HasData(new ClassroomState
+            {
+                Id = 1,
+                FocusMode = "default",
+                IsLocked = false
+            });
 
             // Jitsi Seed Data
             for (int i = 1; i <= 25; i++)

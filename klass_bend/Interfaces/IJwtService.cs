@@ -1,6 +1,5 @@
-﻿using klass_bend.Dtos;
+﻿using System.Security.Claims;
 using klass_bend.Models;
-using System.Security.Claims;
 
 namespace klass_bend.Interfaces
 {

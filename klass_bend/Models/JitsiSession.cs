@@ -8,7 +8,7 @@ namespace klass_bend.Models
 
         [Required]
         [MaxLength(20)]
-        public string JitsiUserStaticId { get; set; }
+        public string? JitsiUserStaticId { get; set; }
 
         [MaxLength(256)]
         public string? UserEmail { get; set; }

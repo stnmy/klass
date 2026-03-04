@@ -9,6 +9,7 @@ interface SidebarProps {
   roomData: any;
   onApiReady: (api: any) => void;
   isTeacher: boolean;
+  isLocked: boolean;
 }
 
 const ClassroomSidebar = ({
@@ -19,10 +20,13 @@ const ClassroomSidebar = ({
   roomData,
   onApiReady,
   isTeacher,
+  isLocked,
 }: SidebarProps) => {
+  // Toolbar buttons available to participants
   const baseButtons = [
     "microphone",
     "camera",
+    "desktop",
     "chat",
     "raisehand",
     "tileview",
@@ -31,7 +35,15 @@ const ClassroomSidebar = ({
     "hangup",
   ];
 
-  const toolbarButtons = isTeacher ? [...baseButtons, "desktop"] : baseButtons;
+  const toolbarButtons = isTeacher ? [...baseButtons] : baseButtons;
+
+  /**
+   * TEACHER EXCEPTION LOGIC:
+   * The manual layout toggles (the floating arrows) should always be visible
+   * to the teacher so they can manage their own view.
+   * For students, they only appear if the teacher has NOT locked the classroom.
+   */
+  const showManualControls = isTeacher || !isLocked;
 
   // Dynamic Width Calculation
   let widthClass = "w-[24%]";
@@ -49,31 +61,39 @@ const ClassroomSidebar = ({
       ${widthClass}`}
     >
       {/* --- DIRECTIONAL TOGGLE GROUP --- */}
-      <div className="absolute -left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2">
-        {/* BUTTON: Expand Workspace (Minimize Video) */}
-        <button
-          onClick={() =>
-            setLayout(layout === "min-video" ? "split" : "min-video")
-          }
-          className={`w-8 h-8 rounded-full border border-brand-light/20 flex items-center justify-center shadow-md transition-all
-            ${layout === "min-video" ? "bg-brand-teal text-white" : "bg-white text-brand-deep hover:bg-brand-bg"}`}
-          title="Expand Workspace"
-        >
-          <ChevronRight size={16} />
-        </button>
+      {showManualControls && (
+        <div className="absolute -left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2">
+          {/* Toggle Workspace Expansion (Minimize Sidebar) */}
+          <button
+            onClick={() =>
+              setLayout(layout === "min-video" ? "split" : "min-video")
+            }
+            className={`w-8 h-8 rounded-full border border-brand-light/20 flex items-center justify-center shadow-md transition-all active:scale-95
+              ${layout === "min-video" ? "bg-brand-teal text-white border-brand-teal" : "bg-white text-brand-deep hover:bg-brand-bg"}`}
+            title={
+              layout === "min-video" ? "Restore Sidebar" : "Minimize Sidebar"
+            }
+          >
+            <ChevronRight size={16} />
+          </button>
 
-        {/* BUTTON: Expand Video (Minimize Workspace) */}
-        <button
-          onClick={() =>
-            setLayout(layout === "min-workspace" ? "split" : "min-workspace")
-          }
-          className={`w-8 h-8 rounded-full border border-brand-light/20 flex items-center justify-center shadow-md transition-all
-            ${layout === "min-workspace" ? "bg-brand-teal text-white" : "bg-white text-brand-deep hover:bg-brand-bg"}`}
-          title="Maximize Video"
-        >
-          <ChevronLeft size={16} />
-        </button>
-      </div>
+          {/* Toggle Video Maximization (Expand Sidebar) */}
+          <button
+            onClick={() =>
+              setLayout(layout === "min-workspace" ? "split" : "min-workspace")
+            }
+            className={`w-8 h-8 rounded-full border border-brand-light/20 flex items-center justify-center shadow-md transition-all active:scale-95
+              ${layout === "min-workspace" ? "bg-brand-teal text-white border-brand-teal" : "bg-white text-brand-deep hover:bg-brand-bg"}`}
+            title={
+              layout === "min-workspace"
+                ? "Restore Workspace"
+                : "Maximize Video Feed"
+            }
+          >
+            <ChevronLeft size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Jitsi Wrapper */}
       <div
@@ -120,7 +140,7 @@ const ClassroomSidebar = ({
 
       {/* Vertical Placeholder for Minimized State */}
       {layout === "min-video" && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in fade-in duration-500">
           <p className="text-[10px] font-black uppercase text-brand-deep/20 rotate-90 tracking-widest whitespace-nowrap">
             Video Feed
           </p>

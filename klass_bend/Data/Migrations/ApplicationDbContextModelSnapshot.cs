@@ -155,6 +155,33 @@ namespace klass_bend.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("klass_bend.Models.ClassroomState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FocusMode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ClassroomState");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            FocusMode = "default",
+                            IsLocked = false
+                        });
+                });
+
             modelBuilder.Entity("klass_bend.Models.Group", b =>
                 {
                     b.Property<int>("Id")

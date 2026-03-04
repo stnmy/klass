@@ -1,14 +1,14 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 using klass_bend.Dtos;
 using klass_bend.Interfaces;
 using klass_bend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace klass_bend.Controllers
 {
@@ -17,10 +17,12 @@ namespace klass_bend.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserRepository _userRepository;
-        
-        public UserController(IUserRepository userRepository)
+        private readonly IClassRepository _classRepository;
+
+        public UserController(IUserRepository userRepository, IClassRepository classRepository)
         {
             _userRepository = userRepository;
+            _classRepository = classRepository;
         }
 
         [Authorize(Roles = "Teacher")]
@@ -80,6 +82,7 @@ namespace klass_bend.Controllers
                 return Unauthorized();
 
             await _userRepository.ClearJitsiSessionAsync(teacherEmail);
+            await _classRepository.ResetClassroomStateAsync();
             return Ok("Session Cleared. Teacher remains active, other slots available.");
         }
 

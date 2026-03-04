@@ -1,5 +1,4 @@
 ﻿using klass_bend.Dtos;
-using klass_bend.Models;
 
 namespace klass_bend.Interfaces
 {

@@ -12,8 +12,8 @@ using klass_bend.Data;
 namespace klass_bend.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260217162656_SqlServerInitial")]
-    partial class SqlServerInitial
+    [Migration("20260302135003_ClassroomStateFix")]
+    partial class ClassroomStateFix
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -156,6 +156,33 @@ namespace klass_bend.Data.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("klass_bend.Models.ClassroomState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FocusMode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ClassroomState");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            FocusMode = "default",
+                            IsLocked = false
+                        });
                 });
 
             modelBuilder.Entity("klass_bend.Models.Group", b =>
