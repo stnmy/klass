@@ -57,7 +57,7 @@ const ClassroomSidebar = ({
 
   return (
     <aside
-      className={`relative border-l border-brand-light/10 bg-white shadow-2xl transition-all duration-700 ease-in-out flex flex-col 
+      className={`relative border-l border-brand-light/10 bg-white shadow-2xl transition-all duration-700 ease-in-out flex flex-col mt-8
       ${widthClass}`}
     >
       {/* --- DIRECTIONAL TOGGLE GROUP --- */}

@@ -164,7 +164,7 @@ const MeetingPage = () => {
     );
 
   return (
-    <div className="relative flex h-screen w-full bg-[#F8F9FA] pt-16 overflow-hidden">
+    <div className="relative flex h-screen w-full bg-[#F8F9FA] pt-8 overflow-hidden">
       <div className="fixed top-24 left-1/2 -translate-x-1/2 z-10000 flex flex-col gap-3 items-center w-full max-w-md px-4 pointer-events-none">
         {activeNotification?.visible && (
           <div
@@ -207,21 +207,49 @@ const MeetingPage = () => {
         <div
           className={`flex-1 flex flex-col transition-opacity duration-300 ${layout === "min-workspace" ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         >
-          <div className="absolute top-12 left-12 right-12 z-30 flex justify-between items-start pointer-events-none">
-            <div className="bg-white/80 backdrop-blur-md border border-brand-light/20 px-4 py-2 rounded-full shadow-sm pointer-events-auto flex items-center gap-3">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse inline-block" />
-              <span className="text-[10px] font-black text-brand-deep uppercase tracking-widest">
-                Live Session
-              </span>
+          <div className="absolute top-12 left-12 right-12 z-30 grid grid-cols-12 items-center pointer-events-none">
+            {/* LEFT: Live Status (Cols 1-3) */}
+            <div className="col-span-3 flex justify-start">
+              {/* Added 'h-10' and 'flex items-center' for height normalization */}
+              <div className="h-10 bg-white/80 backdrop-blur-md border border-brand-light/20 px-4 rounded-full shadow-sm pointer-events-auto flex items-center gap-3">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse inline-block" />
+                <span className="text-[10px] font-black text-brand-deep uppercase tracking-widest whitespace-nowrap">
+                  Live Session
+                </span>
+              </div>
             </div>
 
-            <div className="pointer-events-auto flex gap-3 items-center">
-              {isTeacher && (
+            {/* CENTER: Quick Controls (Cols 4-9) */}
+            <div className="col-span-6 flex justify-center">
+              <div className="pointer-events-auto">
+                <QuickControls
+                  isAudioMuted={isAudioMuted}
+                  isVideoMuted={isVideoMuted}
+                  isHandRaised={isHandRaised}
+                  isSharing={isSharing}
+                  showScreenShare={isTeacher}
+                  isStrictMode={isStrictMode}
+                  onToggleAudio={() => execute("toggleAudio")}
+                  onToggleVideo={() => execute("toggleVideo")}
+                  onToggleHand={() => execute("toggleRaiseHand")}
+                  onToggleShare={() => execute("toggleShareScreen")}
+                />
+              </div>
+            </div>
+
+            {/* RIGHT: Classroom Actions (Cols 10-12) */}
+            <div className="col-span-3 flex justify-end items-center gap-3 pointer-events-auto">
+              {isTeacher ? (
                 <>
+                  {/* Added 'h-10' to match the Left badge */}
                   <button
                     onClick={handleToggleLock}
                     disabled={isSyncingLock}
-                    className={`group flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300 shadow-sm ${classroomState.isLocked ? "bg-red-50 border-red-200 text-red-600" : "bg-white border-brand-light/20 text-brand-deep hover:bg-brand-bg"}`}
+                    className={`group h-10 flex items-center gap-2 px-4 rounded-full border transition-all duration-300 shadow-sm ${
+                      classroomState.isLocked
+                        ? "bg-red-50 border-red-200 text-red-600"
+                        : "bg-white border-brand-light/20 text-brand-deep hover:bg-brand-bg"
+                    }`}
                   >
                     {isSyncingLock ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -233,7 +261,7 @@ const MeetingPage = () => {
                         className="text-gray-400 group-hover:text-brand-deep"
                       />
                     )}
-                    <span className="text-[10px] font-black uppercase tracking-tight">
+                    <span className="text-[10px] font-black uppercase tracking-tight whitespace-nowrap">
                       {classroomState.isLocked ? "UI Locked" : "UI Open"}
                     </span>
                     <div
@@ -245,6 +273,7 @@ const MeetingPage = () => {
                     </div>
                   </button>
 
+                  {/* Ensure ClassroomControls internal trigger also uses h-10 */}
                   <ClassroomControls
                     participants={participants}
                     raisedHands={raisedHands}
@@ -262,33 +291,21 @@ const MeetingPage = () => {
                     localDisplayName={roomData.displayName}
                   />
                 </>
-              )}
-
-              {!isTeacher && classroomState.isLocked && (
-                <div className="bg-gray-100 text-gray-500 px-4 py-2 rounded-full border border-gray-200 flex items-center gap-2">
-                  <Lock size={14} />
-                  <span className="text-[10px] font-black uppercase tracking-tight">
-                    Locked
-                  </span>
-                </div>
+              ) : (
+                classroomState.isLocked && (
+                  <div className="h-10 bg-gray-100 text-gray-500 px-4 rounded-full border border-gray-200 flex items-center gap-2">
+                    <Lock size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-tight">
+                      Locked
+                    </span>
+                  </div>
+                )
               )}
             </div>
           </div>
 
-          <div className="flex-1 bg-white rounded-apple border border-brand-light/20 shadow-sm relative overflow-hidden">
-            <QuickControls
-              isAudioMuted={isAudioMuted}
-              isVideoMuted={isVideoMuted}
-              isHandRaised={isHandRaised}
-              isSharing={isSharing}
-              showScreenShare={isTeacher}
-              isStrictMode={isStrictMode}
-              onToggleAudio={() => execute("toggleAudio")}
-              onToggleVideo={() => execute("toggleVideo")}
-              onToggleHand={() => execute("toggleRaiseHand")}
-              onToggleShare={() => execute("toggleShareScreen")}
-            />
-            <div className="h-full w-full flex flex-col items-center justify-center opacity-20 select-none">
+          <div className="mt-22 flex-1 bg-white rounded-apple border border-brand-light/20 shadow-sm relative overflow-hidden">
+            <div className="h-full w-full flex flex-col items-center justify-center opacity-20 select-none ">
               <Monitor
                 size={64}
                 strokeWidth={1}

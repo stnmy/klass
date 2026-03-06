@@ -15,7 +15,7 @@ interface QuickControlsProps {
   isHandRaised: boolean;
   isSharing: boolean;
   showScreenShare: boolean;
-  isStrictMode: boolean; // Kept for logic if needed elsewhere
+  isStrictMode: boolean;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
   onToggleHand: () => void;
@@ -44,17 +44,19 @@ const QuickControls = ({
     onToggleHand();
   };
 
+  // 18px is the perfect 0.8x-ish scale for standard 24px icons
   const iconProps = {
-    size: 20,
+    size: 18,
     strokeWidth: 2.2,
   };
 
+  // Adjusted padding and scale for the 0.8x feel
   const btnClass =
-    "p-3 rounded-xl transition-all duration-200 active:scale-95 shadow-sm border focus:outline-none flex items-center justify-center cursor-pointer";
+    "p-2.5 rounded-xl transition-all duration-200 active:scale-95 shadow-sm border focus:outline-none flex items-center justify-center cursor-pointer";
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex gap-3 bg-white/90 backdrop-blur-md p-2 rounded-3xl border border-brand-light/20 shadow-2xl pointer-events-auto">
-      {/* Mic Control - Always clickable */}
+    <div className="flex gap-2.5 bg-white/90 backdrop-blur-md p-2 rounded-[22px] border border-brand-light/20 shadow-xl pointer-events-auto w-max transition-all duration-300">
+      {/* Mic Control */}
       <button
         onClick={onToggleAudio}
         className={`${btnClass} ${
@@ -66,7 +68,7 @@ const QuickControls = ({
         {isAudioMuted ? <MicOff {...iconProps} /> : <Mic {...iconProps} />}
       </button>
 
-      {/* Video Control - Always clickable */}
+      {/* Video Control */}
       <button
         onClick={onToggleVideo}
         className={`${btnClass} ${
