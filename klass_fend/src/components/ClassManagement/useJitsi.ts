@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const useJitsi = (isTeacher: boolean) => {
+    const navigate = useNavigate();
     const jitsiApi = useRef<any>(null);
     const [participants, setParticipants] = useState<any[]>([]);
     const [isAudioMuted, setIsAudioMuted] = useState(true);
@@ -11,8 +13,11 @@ export const useJitsi = (isTeacher: boolean) => {
 
     const [activeToast, setActiveToast] = useState<{ name: string; id: string } | null>(null);
     const [raisedHands, setRaisedHands] = useState<string[]>([]);
+
+    // Updated type definition to include 'hand-raised'
     const [activeNotification, setActiveNotification] = useState<{
-        type: "unmute-request" | "muted-by-teacher";
+        type: "unmute-request" | "muted-by-teacher" | "hand-raised";
+        message?: string;
         visible: boolean;
     } | null>(null);
 
@@ -29,15 +34,23 @@ export const useJitsi = (isTeacher: boolean) => {
         );
     }, []);
 
-    const toggleStrictMode = useCallback((enabled: boolean) => {
-        if (!jitsiApi.current || !isTeacher) return;
-        setIsStrictMode(enabled);
-        jitsiApi.current.executeCommand("toggleModeration", enabled, "audio");
-        jitsiApi.current.executeCommand("toggleModeration", enabled, "video");
-    }, [isTeacher]);
+    const toggleStrictMode = useCallback(
+        (enabled: boolean) => {
+            if (!jitsiApi.current || !isTeacher) return;
+            setIsStrictMode(enabled);
+            jitsiApi.current.executeCommand("toggleModeration", enabled, "audio");
+            jitsiApi.current.executeCommand("toggleModeration", enabled, "video");
+        },
+        [isTeacher]
+    );
 
     const onApiReady = (api: any) => {
         jitsiApi.current = api;
+
+        // --- EXIT LOGIC ---
+        api.addListener("videoConferenceLeft", () => {
+            navigate("/dashboard");
+        });
 
         api.addListener("videoConferenceJoined", () => {
             setIsAudioMuted(api.isAudioMuted());
@@ -46,17 +59,17 @@ export const useJitsi = (isTeacher: boolean) => {
         });
 
         // --- MODERATION LOGIC ---
-
-        // Listen for when the room moderation status changes (Strict Mode ON/OFF)
         api.addListener("moderationStatusChanged", (data: any) => {
             if (data.mediaType === "audio") {
                 setIsStrictMode(data.enabled);
 
-                // If I am a student and the teacher enables strict mode, 
-                // I am force-muted by the system.
                 if (!isTeacher && data.enabled) {
                     setIsAudioMuted(true);
-                    setActiveNotification({ type: "muted-by-teacher", visible: true });
+                    setActiveNotification({
+                        type: "muted-by-teacher",
+                        visible: true,
+                        message: "The teacher has muted the class.",
+                    });
                     setTimeout(() => setActiveNotification(null), 4000);
                 }
             }
@@ -64,19 +77,26 @@ export const useJitsi = (isTeacher: boolean) => {
 
         api.addListener("moderationParticipantApproved", (data: any) => {
             if (!isTeacher && data.mediaType === "audio") {
-                setActiveNotification({ type: "unmute-request", visible: true });
+                setActiveNotification({
+                    type: "unmute-request",
+                    visible: true,
+                    message: "The teacher has requested you to unmute.",
+                });
             }
         });
 
         api.addListener("moderationParticipantRejected", (data: any) => {
             if (!isTeacher && data.mediaType === "audio") {
-                setActiveNotification({ type: "muted-by-teacher", visible: true });
+                setActiveNotification({
+                    type: "muted-by-teacher",
+                    visible: true,
+                    message: "Your unmute request was declined.",
+                });
                 setTimeout(() => setActiveNotification(null), 4000);
             }
         });
 
         // --- UI SYNC LOGIC ---
-
         api.addListener("audioMuteStatusChanged", (e: any) => {
             setIsAudioMuted(e.muted);
             updateParticipantList();
@@ -96,13 +116,37 @@ export const useJitsi = (isTeacher: boolean) => {
             } else if (isTeacher) {
                 if (isRaised) {
                     setRaisedHands((prev) => Array.from(new Set([...prev, pId])));
+
                     const rawParticipants = api.getParticipantsInfo();
-                    const student = rawParticipants.find((p: any) => (p.participantId || p.id) === pId);
+                    const student = rawParticipants.find(
+                        (p: any) => (p.participantId || p.id) === pId
+                    );
                     const name = student?.displayName || "Student";
+
+                    // INTEGRATION FIX: Trigger notification for the teacher
+                    setActiveNotification({
+                        type: "hand-raised",
+                        message: `${name} raised their hand`,
+                        visible: true,
+                    });
+
+                    // Maintain the toast state just in case other components use it
                     setActiveToast({ name, id: pId });
-                    setTimeout(() => setActiveToast(null), 5000);
+
+                    // Auto-clear hand raise notification after 5 seconds
+                    setTimeout(() => {
+                        setActiveNotification((prev) =>
+                            prev?.type === "hand-raised" ? null : prev
+                        );
+                        setActiveToast(null);
+                    }, 5000);
+
                 } else {
                     setRaisedHands((prev) => prev.filter((id) => id !== pId));
+                    // If hand lowered, clear notification if it's currently showing that student
+                    setActiveNotification((prev) =>
+                        prev?.type === "hand-raised" ? null : prev
+                    );
                 }
             }
             updateParticipantList();

@@ -5,10 +5,14 @@ import {
   VolumeX,
   Shield,
   ShieldAlert,
-  MicOff,
-  Mic,
-  Hand,
+  Video,
+  Layout,
+  Monitor,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
+import api from "../api/axios";
+import LiveSessionRoster from "../components/ClassManagement/LiveSessionRoaster";
 
 interface Participant {
   id: string;
@@ -19,13 +23,16 @@ interface Participant {
 interface Props {
   participants: Participant[];
   raisedHands: string[];
-  isStrictMode: boolean; // New
-  onToggleStrictMode: (val: boolean) => void; // New
+  isStrictMode: boolean;
+  onToggleStrictMode: (val: boolean) => void;
   onMuteAll: () => void;
   onForceMute: (participantId: string) => void;
   onRequestUnmute: (participantId: string) => void;
   onClearHighlight: (participantId: string) => void;
   localDisplayName?: string;
+  setClassroomState: React.Dispatch<React.SetStateAction<any>>;
+  classroomState: any;
+  onSetLayout: (layout: string) => void;
 }
 
 const ClassroomControls = ({
@@ -38,13 +45,46 @@ const ClassroomControls = ({
   onRequestUnmute,
   onClearHighlight,
   localDisplayName,
+  setClassroomState,
+  classroomState,
+  onSetLayout,
 }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [syncingMode, setSyncingMode] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const studentRoster = participants.filter(
     (p) => p.displayName?.toLowerCase() !== localDisplayName?.toLowerCase(),
   );
+
+  const syncLayout = async (mode: string, locked: boolean, synced: boolean) => {
+    try {
+      setSyncingMode(mode === "default" && !locked ? "reset" : mode);
+      const payload = {
+        focusMode: mode,
+        isLocked: locked,
+        isSynced: synced,
+        isManualLock: classroomState.isManualLock,
+      };
+
+      await api.post("/class/sync-layout", payload);
+
+      setClassroomState((prev: any) => ({
+        ...prev,
+        focusMode: mode,
+        isLocked: locked,
+        isSynced: synced,
+      }));
+
+      if (mode === "jitsi") onSetLayout("min-workspace");
+      else if (mode === "class") onSetLayout("min-video");
+      else onSetLayout("split");
+    } catch (err) {
+      console.error("Layout synchronization failed", err);
+    } finally {
+      setSyncingMode(null);
+    }
+  };
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -59,8 +99,16 @@ const ClassroomControls = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Logic to determine which button is "Active"
+  const getActiveState = (mode: string, lockedReq: boolean) => {
+    return (
+      classroomState.focusMode === mode && classroomState.isLocked === lockedReq
+    );
+  };
+
   return (
     <div className="relative pointer-events-auto" ref={dropdownRef}>
+      {/* Dropdown Trigger */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl transition-all border ${
@@ -79,12 +127,6 @@ const ClassroomControls = ({
           }`}
         >
           {isStrictMode ? <ShieldAlert size={16} /> : <Users size={16} />}
-          {raisedHands.length > 0 && !isStrictMode && (
-            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-            </span>
-          )}
         </div>
         <div className="text-left">
           <p className="text-[10px] font-black text-brand-deep uppercase tracking-widest">
@@ -100,8 +142,43 @@ const ClassroomControls = ({
         />
       </button>
 
+      {/* Main Dropdown Panel */}
       {isOpen && (
         <div className="absolute top-full mt-2 right-0 w-85 bg-white rounded-3xl shadow-2xl border border-brand-light/10 overflow-hidden z-60 animate-in fade-in zoom-in-95 duration-200">
+          {/* 1. Quick Layout Grid */}
+          <div className="p-3 bg-gray-50/50 border-b border-brand-light/10 grid grid-cols-4 gap-2">
+            <LayoutBtn
+              icon={<Video size={14} />}
+              label="Jitsi"
+              isActive={getActiveState("jitsi", true)}
+              isLoading={syncingMode === "jitsi"}
+              onClick={() => syncLayout("jitsi", true, false)}
+            />
+            <LayoutBtn
+              icon={<Layout size={14} />}
+              label="Default"
+              isActive={getActiveState("default", true)}
+              isLoading={syncingMode === "default"}
+              onClick={() => syncLayout("default", true, false)}
+            />
+            <LayoutBtn
+              icon={<Monitor size={14} />}
+              label="Class"
+              isActive={getActiveState("class", true)}
+              isLoading={syncingMode === "class"}
+              onClick={() => syncLayout("class", true, false)}
+            />
+            <LayoutBtn
+              icon={<RotateCcw size={14} />}
+              label="Reset"
+              isActive={getActiveState("default", false)}
+              isLoading={syncingMode === "reset"}
+              onClick={() => syncLayout("default", false, false)}
+              isReset
+            />
+          </div>
+
+          {/* 2. Global Moderation Bar */}
           <div className="p-4 bg-brand-bg/30 border-b border-brand-light/10 flex gap-2 justify-between items-center">
             <button
               onClick={() => onToggleStrictMode(!isStrictMode)}
@@ -127,89 +204,61 @@ const ClassroomControls = ({
             </button>
           </div>
 
-          <div className="max-h-80 overflow-y-auto p-2 custom-scrollbar">
-            {studentRoster.length === 0 ? (
-              <div className="py-8 text-center opacity-40">
-                <Shield size={24} className="mx-auto mb-2" />
-                <p className="text-[9px] font-black uppercase">
-                  No students in session
-                </p>
-              </div>
-            ) : (
-              studentRoster.map((student) => {
-                const isHighlighted = raisedHands.includes(student.id);
-                return (
-                  <div
-                    key={student.id}
-                    className={`flex items-center justify-between p-2 rounded-xl transition-all group mb-1 border ${
-                      isHighlighted
-                        ? "bg-amber-50/50 border-amber-200 shadow-sm"
-                        : "hover:bg-brand-bg/50 border-transparent"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[10px] font-black relative ${
-                          isHighlighted
-                            ? "bg-amber-200 text-amber-700"
-                            : "bg-brand-teal/10 text-brand-teal"
-                        }`}
-                      >
-                        {student.displayName?.charAt(0).toUpperCase() || "S"}
-                        {isHighlighted && (
-                          <div className="absolute -top-1 -right-1 text-amber-600 bg-white rounded-full p-0.5 shadow-sm border border-amber-100">
-                            <Hand
-                              size={10}
-                              fill="currentColor"
-                              className="animate-bounce-short"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span
-                          className={`text-[10px] font-bold truncate ${isHighlighted ? "text-amber-800" : "text-brand-deep"}`}
-                        >
-                          {student.displayName}
-                        </span>
-                        <span className="text-[7px] uppercase font-black opacity-40">
-                          STUDENT
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        title="Force Mute"
-                        onClick={() => onForceMute(student.id)}
-                        className="p-2 rounded-lg bg-white border border-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                      >
-                        <MicOff size={14} />
-                      </button>
-
-                      <button
-                        title="Invite to Speak"
-                        onClick={() => {
-                          onRequestUnmute(student.id);
-                          onClearHighlight(student.id);
-                        }}
-                        className={`p-2 rounded-lg transition-all border shadow-sm ${
-                          isHighlighted
-                            ? "bg-amber-500 text-white border-amber-600 scale-105 hover:bg-amber-600"
-                            : "border-brand-teal/20 bg-white text-brand-teal hover:bg-brand-teal hover:text-white"
-                        }`}
-                      >
-                        <Mic size={14} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          {/* 3. Live Session Roster Component */}
+          <LiveSessionRoster
+            students={studentRoster}
+            raisedHands={raisedHands}
+            onForceMute={onForceMute}
+            onRequestUnmute={onRequestUnmute}
+            onClearHighlight={onClearHighlight}
+          />
         </div>
       )}
     </div>
+  );
+};
+
+// Internal Helper Component for Layout Buttons
+const LayoutBtn = ({
+  icon,
+  label,
+  onClick,
+  isActive,
+  isLoading,
+  isReset = false,
+}: any) => {
+  const activeClass = isReset
+    ? "bg-red-600 text-white border-red-700"
+    : "bg-brand-teal text-white border-brand-teal shadow-md";
+
+  const inactiveClass = isReset
+    ? "bg-red-50 border-red-100 text-red-600 hover:bg-red-100"
+    : "bg-white border-gray-100 hover:border-brand-teal text-brand-deep group";
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={isLoading}
+      className={`relative flex flex-col items-center gap-1 p-2 rounded-xl transition-all border active:scale-95 disabled:opacity-70 ${
+        isActive ? activeClass : inactiveClass
+      }`}
+    >
+      {isLoading ? (
+        <Loader2 size={14} className="animate-spin" />
+      ) : (
+        <div
+          className={!isReset && !isActive ? "group-hover:text-brand-teal" : ""}
+        >
+          {icon}
+        </div>
+      )}
+      <span className="text-[7px] font-black uppercase">{label}</span>
+
+      {/* Visual Dot for Active Mode */}
+      {isActive && !isReset && (
+        <div className="absolute bottom-1 w-1 h-1 bg-white rounded-full animate-pulse" />
+      )}
+    </button>
   );
 };
 

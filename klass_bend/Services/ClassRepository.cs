@@ -22,7 +22,8 @@ namespace klass_bend.Services
                 .Select(s => new ClassroomStateDto
                 {
                     FocusMode = s.FocusMode,
-                    IsLocked = s.IsLocked
+                    IsLocked = s.IsLocked,
+                    IsSynced = s.IsSynced
                 })
             .FirstOrDefaultAsync())!;
         }
@@ -36,12 +37,33 @@ namespace klass_bend.Services
             return await _applicationDbContext.SaveChangesAsync() > 0;
         }
 
-        public async Task<bool> UpdateLockStatusAsync(bool isLocked)
+        public async Task<bool> UpdateLockStatusAsync(bool isLocked, bool isSynced)
         {
+            // Assuming ID 1 is the singleton state
             var state = await _applicationDbContext.ClassroomState.FirstOrDefaultAsync(x => x.Id == 1);
+
             if (state == null) return false;
 
             state.IsLocked = isLocked;
+            state.IsSynced = isSynced;
+
+            return await _applicationDbContext.SaveChangesAsync() > 0;
+        }
+
+        public async Task<bool> UpdateClassroomLayoutAsync(string mode, bool isLocked, bool isSynced)
+        {
+            // 1. Fetch the record ONCE
+            var state = await _applicationDbContext.ClassroomState.FirstOrDefaultAsync(x => x.Id == 1);
+            if (state == null) return false;
+
+            // 2. Apply all changes to the tracked object
+            state.FocusMode = mode;
+            state.IsLocked = isLocked;
+            state.IsSynced = isSynced;
+
+            // 3. Save ONCE
+            // This generates a single SQL UPDATE statement: 
+            // UPDATE ClassroomState SET FocusMode = ..., IsLocked = ... WHERE Id = 1
             return await _applicationDbContext.SaveChangesAsync() > 0;
         }
 
@@ -55,6 +77,7 @@ namespace klass_bend.Services
 
             state.FocusMode = "default";
             state.IsLocked = false;
+            state.IsSynced = false;
             return await _applicationDbContext.SaveChangesAsync() > 0;
         }
     }

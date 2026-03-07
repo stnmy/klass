@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace klass_bend.Dtos.ClassRoom
+namespace klass_bend.Dtos.Classroom
 {
-    public class ClassroomStateDto
+    public class SyncLayoutRequest
     {
         public string? FocusMode { get; set; }
         public bool IsLocked { get; set; }

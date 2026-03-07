@@ -22,7 +22,6 @@ const ClassroomSidebar = ({
   isTeacher,
   isLocked,
 }: SidebarProps) => {
-  // Toolbar buttons available to participants
   const baseButtons = [
     "microphone",
     "camera",
@@ -38,10 +37,9 @@ const ClassroomSidebar = ({
   const toolbarButtons = isTeacher ? [...baseButtons] : baseButtons;
 
   /**
-   * TEACHER EXCEPTION LOGIC:
-   * The manual layout toggles (the floating arrows) should always be visible
-   * to the teacher so they can manage their own view.
-   * For students, they only appear if the teacher has NOT locked the classroom.
+   * Visibility Logic:
+   * Teacher always sees arrows to control their own view.
+   * Students only see arrows if the teacher hasn't locked the layout.
    */
   const showManualControls = isTeacher || !isLocked;
 
@@ -63,7 +61,6 @@ const ClassroomSidebar = ({
       {/* --- DIRECTIONAL TOGGLE GROUP --- */}
       {showManualControls && (
         <div className="absolute -left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2">
-          {/* Toggle Workspace Expansion (Minimize Sidebar) */}
           <button
             onClick={() =>
               setLayout(layout === "min-video" ? "split" : "min-video")
@@ -77,7 +74,6 @@ const ClassroomSidebar = ({
             <ChevronRight size={16} />
           </button>
 
-          {/* Toggle Video Maximization (Expand Sidebar) */}
           <button
             onClick={() =>
               setLayout(layout === "min-workspace" ? "split" : "min-workspace")
@@ -95,7 +91,7 @@ const ClassroomSidebar = ({
         </div>
       )}
 
-      {/* Jitsi Wrapper */}
+      {/* Jitsi Wrapper - Auto-join preserved via jwt and configOverwrite */}
       <div
         className={`flex-1 transition-all duration-500 ${
           layout === "min-video" ? "opacity-0 invisible" : "opacity-100 visible"
@@ -128,7 +124,6 @@ const ClassroomSidebar = ({
                 el.tagName === "IFRAME"
                   ? (el as HTMLIFrameElement)
                   : el.querySelector("iframe");
-
               if (iframe) {
                 iframe.allow =
                   "camera; microphone; display-capture; autoplay; clipboard-write";
@@ -138,7 +133,6 @@ const ClassroomSidebar = ({
         />
       </div>
 
-      {/* Vertical Placeholder for Minimized State */}
       {layout === "min-video" && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in fade-in duration-500">
           <p className="text-[10px] font-black uppercase text-brand-deep/20 rotate-90 tracking-widest whitespace-nowrap">

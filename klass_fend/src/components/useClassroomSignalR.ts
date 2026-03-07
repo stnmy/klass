@@ -1,32 +1,47 @@
 import { useEffect, useRef } from "react";
 import * as signalR from "@microsoft/signalr";
 
+type FocusUpdateHandler = (mode: string) => void;
+type LockUpdateHandler = (isLocked: boolean, focusMode: string) => void;
+
 export const useClassroomSignalR = (
-    onFocusUpdate: (mode: string) => void,
-    onLockUpdate: (isLocked: boolean, focusMode: string) => void
+    onFocusUpdate: FocusUpdateHandler,
+    onLockUpdate: LockUpdateHandler
 ) => {
     const connectionRef = useRef<signalR.HubConnection | null>(null);
 
+    // We use refs for the handlers so the useEffect doesn't need to re-run 
+    // whenever the parent component re-renders or changes the callback logic.
+    const focusUpdateRef = useRef(onFocusUpdate);
+    const lockUpdateRef = useRef(onLockUpdate);
+
     useEffect(() => {
-        console.log("📡 SignalR: Initializing connection to:", import.meta.env.VITE_SIGNALR_URL);
+        focusUpdateRef.current = onFocusUpdate;
+        lockUpdateRef.current = onLockUpdate;
+    }, [onFocusUpdate, onLockUpdate]);
+
+    useEffect(() => {
+        // Avoid double initialization in Strict Mode
+        if (connectionRef.current) return;
+
+        console.log("📡 SignalR: Initializing connection...");
 
         const connection = new signalR.HubConnectionBuilder()
             .withUrl(import.meta.env.VITE_SIGNALR_URL)
             .withAutomaticReconnect()
-            // This will log SignalR's internal lifecycle (handshakes, pings) to the console
             .configureLogging(signalR.LogLevel.Information)
             .build();
 
         // --- LISTENERS ---
 
         connection.on("ReceiveFocusUpdate", (mode: string) => {
-            console.log("%c🎯 SignalR: Received 'ReceiveFocusUpdate'", "color: #007bff; font-weight: bold;", { mode });
-            onFocusUpdate(mode);
+            console.log("%c🎯 SignalR: Received Focus Update", "color: #007bff; font-weight: bold;", { mode });
+            focusUpdateRef.current(mode);
         });
 
         connection.on("ReceiveLockUpdate", (data: { isLocked: boolean; focusMode: string }) => {
-            console.log("%c🔒 SignalR: Received 'ReceiveLockUpdate'", "color: #ffc107; font-weight: bold;", data);
-            onLockUpdate(data.isLocked, data.focusMode);
+            console.log("%c🔒 SignalR: Received Lock Update", "color: #ffc107; font-weight: bold;", data);
+            lockUpdateRef.current(data.isLocked, data.focusMode);
         });
 
         // --- LIFECYCLE EVENTS ---
@@ -36,7 +51,7 @@ export const useClassroomSignalR = (
         });
 
         connection.onreconnected((connectionId) => {
-            console.log("✅ SignalR: Reconnected. Connection ID:", connectionId);
+            console.log("✅ SignalR: Reconnected. ID:", connectionId);
         });
 
         // --- START ---
@@ -52,10 +67,13 @@ export const useClassroomSignalR = (
         connectionRef.current = connection;
 
         return () => {
-            console.log("🔌 SignalR: Component unmounting, stopping connection...");
-            connection.stop();
+            if (connectionRef.current) {
+                console.log("🔌 SignalR: Stopping connection...");
+                connectionRef.current.stop();
+                connectionRef.current = null;
+            }
         };
-    }, [onFocusUpdate, onLockUpdate]);
+    }, []); // Empty dependency array ensures this only runs once on mount
 
     return connectionRef.current;
 };

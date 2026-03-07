@@ -1,4 +1,5 @@
 
+using klass_bend.Dtos.Classroom;
 using klass_bend.Hubs;
 using klass_bend.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -47,31 +48,31 @@ namespace klass_bend.Controllers
             }
         }
         // [Authorize(Roles = "Teacher")]
-        [HttpPost("focus")]
-        public async Task<IActionResult> SetFocusMode([FromBody] string mode)
-        {
-            var currentState = await _classRepository.GetClassroomStateAsync();
-            if (currentState.IsLocked)
-            {
-                var success = await _classRepository.UpdateFocusModeAsync(mode);
-                if (!success)
-                {
-                    return BadRequest("Failed to update focus mode");
-                }
-                await _hubContext.Clients.All.SendAsync("ReceiveFocusUpdate", mode);
+        //[HttpPost("focus")]
+        //public async Task<IActionResult> SetFocusMode([FromBody] string mode)
+        //{
+        //    var currentState = await _classRepository.GetClassroomStateAsync();
+        //    if (currentState.IsLocked)
+        //    {
+        //        var success = await _classRepository.UpdateFocusModeAsync(mode);
+        //        if (!success)
+        //        {
+        //            return BadRequest("Failed to update focus mode");
+        //        }
+        //        await _hubContext.Clients.All.SendAsync("ReceiveFocusUpdate", mode);
 
-                return Ok(new { FocusMode = mode });
-            }
+        //        return Ok(new { FocusMode = mode });
+        //    }
 
-            return Ok(new { FocusMode = mode, Synced = false, Message = "Room is not locked; layout not enforced." });
-        }
+        //    return Ok(new { FocusMode = mode, Synced = false, Message = "Room is not locked; layout not enforced." });
+        //}
 
         // [Authorize(Roles = "Teacher")]
         [HttpPost("lock")]
-        public async Task<IActionResult> SetLockStatus([FromBody] bool isLocked)
+        public async Task<IActionResult> SetLockStatus([FromBody] LockUpdateRequest lockUpdateRequest)
         {
 
-            var success = await _classRepository.UpdateLockStatusAsync(isLocked);
+            var success = await _classRepository.UpdateLockStatusAsync(lockUpdateRequest.IsLocked, lockUpdateRequest.IsSynced);
             if (!success)
             {
                 return BadRequest("Failed to update lock status.");
@@ -83,8 +84,33 @@ namespace klass_bend.Controllers
                 isLocked = newState.IsLocked,
                 focusMode = newState.FocusMode
             });
-            return Ok(new { IsLocked = isLocked });
+            return Ok(new { lockUpdateRequest });
         }
 
+        [HttpPost("sync-layout")]
+        public async Task<IActionResult> SyncLayout([FromBody] SyncLayoutRequest request)
+        {
+            // Call the new combined method
+            var success = await _classRepository.UpdateClassroomLayoutAsync(
+                request.FocusMode,
+                request.IsLocked,
+                request.IsSynced
+            );
+
+            if (!success)
+            {
+                return BadRequest("Failed to sync classroom layout.");
+            }
+
+            // Broadcast the new state
+            await _hubContext.Clients.All.SendAsync("ReceiveLockUpdate", new
+            {
+                focusMode = request.FocusMode,
+                isLocked = request.IsLocked,
+                //isSynced = request.IsSynced
+            });
+
+            return Ok(new { message = "Layout synced successfully", state = request });
+        }
     }
 }

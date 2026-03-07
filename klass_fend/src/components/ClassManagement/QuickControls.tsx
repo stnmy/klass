@@ -7,6 +7,7 @@ import {
   Hand,
   MonitorUp,
   MonitorOff,
+  PhoneOff, // Added for the Hang Up button
 } from "lucide-react";
 
 interface QuickControlsProps {
@@ -20,6 +21,7 @@ interface QuickControlsProps {
   onToggleVideo: () => void;
   onToggleHand: () => void;
   onToggleShare: () => void;
+  onHangUp: () => void; // Added new prop
 }
 
 const QuickControls = ({
@@ -32,6 +34,7 @@ const QuickControls = ({
   isSharing,
   showScreenShare,
   onToggleShare,
+  onHangUp, // Destructured new prop
 }: QuickControlsProps) => {
   const [localHandRaised, setLocalHandRaised] = useState(isHandRaised);
 
@@ -44,13 +47,11 @@ const QuickControls = ({
     onToggleHand();
   };
 
-  // 18px is the perfect 0.8x-ish scale for standard 24px icons
   const iconProps = {
     size: 18,
     strokeWidth: 2.2,
   };
 
-  // Adjusted padding and scale for the 0.8x feel
   const btnClass =
     "p-2.5 rounded-xl transition-all duration-200 active:scale-95 shadow-sm border focus:outline-none flex items-center justify-center cursor-pointer";
 
@@ -117,6 +118,18 @@ const QuickControls = ({
         {localHandRaised && (
           <span className="absolute inset-0 bg-white/10 animate-pulse pointer-events-none" />
         )}
+      </button>
+
+      {/* Vertical Divider */}
+      <div className="w-[1px] h-auto bg-brand-light/20 mx-0.5" />
+
+      {/* Hang Up Button */}
+      <button
+        onClick={onHangUp}
+        className={`${btnClass} bg-red-500 border-red-600 text-white hover:bg-red-600 shadow-md active:bg-red-700`}
+        title="Leave Class"
+      >
+        <PhoneOff {...iconProps} />
       </button>
     </div>
   );

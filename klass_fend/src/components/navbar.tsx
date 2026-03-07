@@ -43,7 +43,9 @@ const Navbar = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Added 'w-40' and 'justify-center' to ensure uniform width across all buttons
+  // NEW: Check if we are currently in the meeting room
+  const isMeetingPage = location.pathname === "/meeting";
+
   const navBtnBase =
     "flex items-center justify-center gap-2 w-40 h-10 rounded-full text-[11px] font-black tracking-widest transition-all duration-300 transform active:scale-95";
 
@@ -96,8 +98,8 @@ const Navbar = () => {
             </div>
           )}
 
-          {/* JOIN CLASS CTA - Now same width as Teacher buttons */}
-          {user && (
+          {/* JOIN CLASS CTA - Now hidden if already on the meeting page */}
+          {user && !isMeetingPage && (
             <button
               onClick={() => navigate("/meeting")}
               disabled={!hasActiveSession}
