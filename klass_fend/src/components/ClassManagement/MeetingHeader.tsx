@@ -13,16 +13,20 @@ const MeetingHeader = ({
   setLayout,
 }: any) => {
   const isHeaderLockedUI =
-    !isSyncingLock && classroomState.isManualLock === true;
+    !isSyncingLock && classroomState?.isManualLock === true;
 
   return (
-    <div className="absolute top-12 left-12 right-12 z-30 grid grid-cols-12 items-center pointer-events-none">
-      {/* CENTER / FULL: Quick Controls */}
+    /* REMOVED: absolute, top-12, left-12, right-12.
+       ADDED: w-full. 
+       The parent <header> in MeetingPage now handles the padding and height.
+    */
+    <div className="w-full grid grid-cols-12 items-center pointer-events-none">
+      {/* LEFT/CENTER: Quick Controls */}
       <div
         className={`transition-all duration-500 flex ${
           isTeacher
-            ? "col-span-8 justify-start" // Teacher: Aligned left/center within 8 cols
-            : "col-span-12 justify-center" // Student: Full width and centered
+            ? "col-span-8 justify-start" // Teacher: Aligned left
+            : "col-span-11 justify-center" // Student: Centered
         }`}
       >
         <div className="pointer-events-auto">
@@ -39,11 +43,15 @@ const MeetingHeader = ({
       </div>
 
       {/* RIGHT: Classroom Actions */}
-      {/* We only show this col if it's a teacher OR if a student needs to see the Locked status */}
-      {(isTeacher || classroomState.isLocked) && (
-        <div className="col-span-4 flex justify-end items-center gap-3 pointer-events-auto">
+      {(isTeacher || classroomState?.isLocked) && (
+        <div
+          className={`flex justify-end items-center gap-3 pointer-events-auto ${
+            isTeacher ? "col-span-4" : "col-span-1"
+          }`}
+        >
           {isTeacher ? (
             <>
+              {/* Lock UI Toggle */}
               <button
                 onClick={() => {
                   const nextManualState = !classroomState.isManualLock;
@@ -75,6 +83,7 @@ const MeetingHeader = ({
                       : "UI Open"}
                 </span>
 
+                {/* Toggle Switch Visual */}
                 <div
                   className={`ml-1 w-8 h-4 rounded-full relative transition-colors ${
                     isHeaderLockedUI ? "bg-red-500" : "bg-gray-200"
@@ -88,6 +97,7 @@ const MeetingHeader = ({
                 </div>
               </button>
 
+              {/* Advanced Teacher Controls */}
               <ClassroomControls
                 participants={jitsi.participants}
                 raisedHands={jitsi.raisedHands}
@@ -113,10 +123,10 @@ const MeetingHeader = ({
               />
             </>
           ) : (
-            // Student Locked Badge
-            <div className="h-10 bg-gray-100 text-gray-500 px-4 rounded-full border border-gray-200 flex items-center gap-2">
-              <Lock size={14} />
-              <span className="text-[10px] font-black uppercase tracking-tight">
+            /* Student Locked Badge */
+            <div className="h-10 bg-red-600 text-white px-4 rounded-full border border-red-700 shadow-md flex items-center gap-2 transition-all animate-in fade-in zoom-in duration-300">
+              <Lock size={14} className="animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-tight whitespace-nowrap hidden lg:inline">
                 Locked
               </span>
             </div>

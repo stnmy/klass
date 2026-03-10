@@ -19,19 +19,11 @@ const MeetingPage = () => {
   const logic = useMeetingLogic(user, layout, setLayout);
   const jitsi = useJitsi(logic.isTeacher);
 
-  // --- SignalR Integration ---
   useClassroomSignalR(
-    // 1. Handle ReceiveFocusUpdate (mode: string)
     useCallback(
       (mode: string) => {
-        // Teachers ignore their own broadcasted updates to prevent loops
         if (logic.isTeacher) return;
-
-        console.log("🎯 SignalR: Received Focus Update ->", mode);
-
         logic.setClassroomState((prev: any) => ({ ...prev, focusMode: mode }));
-
-        // Only force layout change if the teacher has the lock enabled
         if (logic.classroomState.isLocked) {
           logic.applyFocusMode(mode);
         }
@@ -43,17 +35,9 @@ const MeetingPage = () => {
         logic.setClassroomState,
       ],
     ),
-
-    // 2. Handle ReceiveLockUpdate (isLocked, focusMode)
     useCallback(
       (isLocked: boolean, focusMode: string) => {
         if (logic.isTeacher) return;
-
-        console.log("🔒 SignalR: Received Lock Update ->", {
-          isLocked,
-          focusMode,
-        });
-
         logic.setClassroomState((prev: any) => ({
           ...prev,
           focusMode: focusMode,
@@ -62,11 +46,6 @@ const MeetingPage = () => {
           isManualLock: isLocked,
         }));
 
-        /**
-         * Logic: We force the student's layout change if:
-         * - The teacher turned the lock ON
-         * - OR the teacher clicked 'Reset' (focusMode === 'default' and isLocked === false)
-         */
         if (isLocked || focusMode === "default") {
           logic.applyFocusMode(focusMode);
         }
@@ -89,31 +68,34 @@ const MeetingPage = () => {
     );
 
   return (
-    <div className="relative flex h-screen w-full bg-[#F8F9FA] pt-8 overflow-hidden">
-      <NotificationOverlay
-        activeNotification={jitsi.activeNotification}
-        setActiveNotification={jitsi.setActiveNotification}
-      />
+    <div className="flex flex-col h-screen w-full bg-[#F8F9FA] overflow-hidden">
+      {/* HEADER: Floating style without the background bar */}
+      <header className="h-20 w-full flex items-center px-6 lg:px-12 z-50 shrink-0">
+        <MeetingHeader {...logic} jitsi={jitsi} />
+      </header>
 
-      {/* Main Workspace Area */}
-      <main
-        className={`relative flex flex-col transition-all duration-700 border-r border-brand-light/10 ${
-          layout === "min-workspace"
-            ? "w-17.5 p-0 overflow-hidden"
-            : "flex-1 p-6 lg:p-8"
-        }`}
-      >
-        <div
-          className={`flex-1 flex flex-col transition-opacity duration-300 ${
-            layout === "min-workspace"
-              ? "opacity-0 pointer-events-none"
-              : "opacity-100"
+      {/* MEETING BODY */}
+      <div className="flex flex-1 overflow-hidden relative">
+        <NotificationOverlay
+          activeNotification={jitsi.activeNotification}
+          setActiveNotification={jitsi.setActiveNotification}
+        />
+
+        {/* Main Workspace Area:
+            Instead of w-0, we use w-20 (80px) when minimized.
+            This prevents Jitsi from hitting the far left wall.
+        */}
+        <main
+          className={`relative flex flex-col transition-all duration-700 ${
+            layout === "min-workspace" ? "w-20 p-2" : "flex-1 p-2"
           }`}
         >
-          <MeetingHeader {...logic} jitsi={jitsi} />
-
-          <div className="mt-22 flex-1 bg-white rounded-apple border border-brand-light/20 shadow-sm relative overflow-hidden">
-            <div className="h-full w-full flex flex-col items-center justify-center opacity-20 select-none">
+          <div className="flex-1 bg-white rounded-apple border border-brand-light/10 shadow-sm relative overflow-hidden">
+            <div
+              className={`h-full w-full flex flex-col items-center justify-center transition-opacity duration-500 ${
+                layout === "min-workspace" ? "opacity-0" : "opacity-20"
+              } select-none`}
+            >
               <Monitor
                 size={64}
                 strokeWidth={1}
@@ -124,22 +106,22 @@ const MeetingPage = () => {
               </p>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
 
-      {/* Jitsi Sidebar Area */}
-      {isReadyForJitsi && (
-        <ClassroomSidebar
-          layout={layout}
-          setLayout={setLayout}
-          isSharing={jitsi.isSharing}
-          jwt={logic.jwt}
-          roomData={logic.roomData}
-          onApiReady={jitsi.onApiReady}
-          isTeacher={logic.isTeacher}
-          isLocked={logic.classroomState.isLocked}
-        />
-      )}
+        {/* Jitsi Sidebar Area */}
+        {isReadyForJitsi && (
+          <ClassroomSidebar
+            layout={layout}
+            setLayout={setLayout}
+            isSharing={jitsi.isSharing}
+            jwt={logic.jwt}
+            roomData={logic.roomData}
+            onApiReady={jitsi.onApiReady}
+            isTeacher={logic.isTeacher}
+            isLocked={logic.classroomState.isLocked}
+          />
+        )}
+      </div>
     </div>
   );
 };
