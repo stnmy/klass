@@ -70,7 +70,7 @@ const MeetingPage = () => {
   return (
     <div className="flex flex-col h-screen w-full bg-[#F8F9FA] overflow-hidden">
       {/* HEADER: Floating style without the background bar */}
-      <header className="h-20 w-full flex items-center px-6 lg:px-12 z-50 shrink-0">
+      <header className="h-20 w-full flex items-center px-2 z-50 shrink-0">
         <MeetingHeader {...logic} jitsi={jitsi} />
       </header>
 
@@ -87,10 +87,10 @@ const MeetingPage = () => {
         */}
         <main
           className={`relative flex flex-col transition-all duration-700 ${
-            layout === "min-workspace" ? "w-20 p-2" : "flex-1 p-2"
+            layout === "min-workspace" ? "w-20 p-2" : "flex-1 pr-2"
           }`}
         >
-          <div className="flex-1 bg-white rounded-apple border border-brand-light/10 shadow-sm relative overflow-hidden">
+          <div className="flex-1 bg-white rounded-2xl border border-brand-light/10 shadow-sm relative overflow-hidden">
             <div
               className={`h-full w-full flex flex-col items-center justify-center transition-opacity duration-500 ${
                 layout === "min-workspace" ? "opacity-0" : "opacity-20"

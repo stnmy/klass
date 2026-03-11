@@ -77,11 +77,21 @@ export const useMeetingLogic = (
 
   /**
    * MASTER TOGGLE (Header Switch)
+   * ADDED: forcedLockedState parameter to support the Reset-on-Unlock logic 
+   * while keeping all existing state updates exactly as they were.
    */
-  const handleToggleLock = async (nextManualStatus: boolean, currentMode: string) => {
+  const handleToggleLock = async (
+    nextManualStatus: boolean,
+    currentMode: string,
+    forcedLockedState?: boolean // NEW: Allows Header to force "Reset" behavior
+  ) => {
+    // If forcedLockedState is provided (false), it overrides the toggle status.
+    // Otherwise, it defaults to the toggle status (nextManualStatus).
+    const finalLockedState = forcedLockedState !== undefined ? forcedLockedState : nextManualStatus;
+
     setClassroomState((prev) => ({
       ...prev,
-      isLocked: nextManualStatus,
+      isLocked: finalLockedState,
       isSynced: nextManualStatus,
       isManualLock: nextManualStatus,
       focusMode: currentMode,
@@ -91,7 +101,7 @@ export const useMeetingLogic = (
     try {
       await api.post("/class/sync-layout", {
         focusMode: currentMode,
-        isLocked: nextManualStatus,
+        isLocked: finalLockedState,
         isSynced: nextManualStatus,
         isManualLock: nextManualStatus
       });

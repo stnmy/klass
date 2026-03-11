@@ -16,10 +16,6 @@ const MeetingHeader = ({
     !isSyncingLock && classroomState?.isManualLock === true;
 
   return (
-    /* REMOVED: absolute, top-12, left-12, right-12.
-       ADDED: w-full. 
-       The parent <header> in MeetingPage now handles the padding and height.
-    */
     <div className="w-full grid grid-cols-12 items-center pointer-events-none">
       {/* LEFT/CENTER: Quick Controls */}
       <div
@@ -54,11 +50,29 @@ const MeetingHeader = ({
               {/* Lock UI Toggle */}
               <button
                 onClick={() => {
-                  const nextManualState = !classroomState.isManualLock;
-                  handleToggleLock(
-                    nextManualState,
-                    classroomState.focusMode || "default",
-                  );
+                  const willBeLocked = !classroomState.isManualLock;
+
+                  if (!willBeLocked) {
+                    /**
+                     * LOGIC: TURNING OFF THE LOCK
+                     * When turning off the manual lock, we force a "Reset"
+                     * state: focusMode goes back to default and isLocked becomes false.
+                     */
+                    handleToggleLock(
+                      false, // nextManualState (isManualLock)
+                      "default", // focusMode
+                      false, // isLocked (forces students to unlock)
+                    );
+                  } else {
+                    /**
+                     * LOGIC: TURNING ON THE LOCK
+                     * Standard locking behavior using current session settings.
+                     */
+                    handleToggleLock(
+                      true,
+                      classroomState.focusMode || "default",
+                    );
+                  }
                 }}
                 disabled={isSyncingLock}
                 className={`group h-10 flex items-center gap-2 px-4 rounded-full border transition-all duration-300 shadow-sm ${

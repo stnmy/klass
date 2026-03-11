@@ -47,7 +47,6 @@ const ClassroomControls = ({
   localDisplayName,
   setClassroomState,
   classroomState,
-  onSetLayout,
 }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [syncingMode, setSyncingMode] = useState<string | null>(null);
@@ -57,6 +56,10 @@ const ClassroomControls = ({
     (p) => p.displayName?.toLowerCase() !== localDisplayName?.toLowerCase(),
   );
 
+  /**
+   * Syncs the classroom-wide layout (broadcast).
+   * Note: This NO LONGER calls onSetLayout. It only affects the students.
+   */
   const syncLayout = async (mode: string, locked: boolean, synced: boolean) => {
     try {
       setSyncingMode(mode === "default" && !locked ? "reset" : mode);
@@ -69,6 +72,7 @@ const ClassroomControls = ({
 
       await api.post("/class/sync-layout", payload);
 
+      // Update the global state so buttons highlight correctly
       setClassroomState((prev: any) => ({
         ...prev,
         focusMode: mode,
@@ -76,9 +80,8 @@ const ClassroomControls = ({
         isSynced: synced,
       }));
 
-      if (mode === "jitsi") onSetLayout("min-workspace");
-      else if (mode === "class") onSetLayout("min-video");
-      else onSetLayout("split");
+      // TEACHER VIEW: Is now left untouched.
+      // Teacher stays in whatever view they manually selected.
     } catch (err) {
       console.error("Layout synchronization failed", err);
     } finally {
@@ -99,7 +102,10 @@ const ClassroomControls = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // Logic to determine which button is "Active"
+  /**
+   * Logic: Strictly Global Focus Mode.
+   * Buttons highlight ONLY if the classroom is set to that mode.
+   */
   const getActiveState = (mode: string, lockedReq: boolean) => {
     return (
       classroomState.focusMode === mode && classroomState.isLocked === lockedReq
@@ -145,7 +151,7 @@ const ClassroomControls = ({
       {/* Main Dropdown Panel */}
       {isOpen && (
         <div className="absolute top-full mt-2 right-0 w-85 bg-white rounded-3xl shadow-2xl border border-brand-light/10 overflow-hidden z-60 animate-in fade-in zoom-in-95 duration-200">
-          {/* 1. Quick Layout Grid */}
+          {/* 1. Global Sync Grid: Strictly reflects classroomState */}
           <div className="p-3 bg-gray-50/50 border-b border-brand-light/10 grid grid-cols-4 gap-2">
             <LayoutBtn
               icon={<Video size={14} />}
@@ -218,7 +224,6 @@ const ClassroomControls = ({
   );
 };
 
-// Internal Helper Component for Layout Buttons
 const LayoutBtn = ({
   icon,
   label,
@@ -254,7 +259,6 @@ const LayoutBtn = ({
       )}
       <span className="text-[7px] font-black uppercase">{label}</span>
 
-      {/* Visual Dot for Active Mode */}
       {isActive && !isReset && (
         <div className="absolute bottom-1 w-1 h-1 bg-white rounded-full animate-pulse" />
       )}
