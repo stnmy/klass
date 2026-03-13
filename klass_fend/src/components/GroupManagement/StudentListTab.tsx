@@ -102,7 +102,7 @@ const StudentListTab = ({ students, groups, onUpdate }: Props) => {
           <label className={labelBase}>
             <Database size={12} /> Master Database
           </label>
-          <div className="relative h-[64px] w-full bg-white border border-brand-light/20 rounded-[1.5rem] shadow-sm flex items-center px-6 focus-within:border-brand-teal focus-within:ring-4 focus-within:ring-brand-teal/5 transition-all">
+          <div className="relative h-16 w-full bg-white border border-brand-light/20 rounded-3xl shadow-sm flex items-center px-6 focus-within:border-brand-teal focus-within:ring-4 focus-within:ring-brand-teal/5 transition-all">
             <Search className="text-brand-muted/40 mr-3" size={18} />
             <input
               type="text"

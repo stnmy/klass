@@ -2,6 +2,7 @@
 using klass_bend.Dtos.Classroom;
 using klass_bend.Hubs;
 using klass_bend.Interfaces;
+using klass_bend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -87,6 +88,29 @@ namespace klass_bend.Controllers
             return Ok(new { lockUpdateRequest });
         }
 
+        [Authorize]
+        [HttpPost("update-hand-state")]
+        public async Task<IActionResult> UpdateHandState([FromBody] HandStateRequest request)
+        {
+            var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                         ?? User.FindFirst("email")?.Value;
+
+            if (string.IsNullOrEmpty(userEmail))
+            {
+                return Unauthorized("Email claim not found in token.");
+            }
+
+            // Access the boolean via request.IsRaised
+            var result = await _classRepository.UpdateStudentHandStatusByEmailAsync(userEmail, request.IsRaised);
+
+            if (!result)
+            {
+                return NotFound("Jitsi session not found for this user.");
+            }
+
+            return Ok();
+        }
+
         [HttpPost("sync-layout")]
         public async Task<IActionResult> SyncLayout([FromBody] SyncLayoutRequest request)
         {
@@ -111,6 +135,33 @@ namespace klass_bend.Controllers
             });
 
             return Ok(new { message = "Layout synced successfully", state = request });
+        }
+
+        [Authorize(Roles = "Teacher")]
+        [HttpPost("teacher-lower-hand")]
+        public async Task<IActionResult> TeacherLowerHand([FromBody] LowerHandRequest request)
+        {
+            if (string.IsNullOrEmpty(request.DisplayName))
+            {
+                return BadRequest("DisplayName is required.");
+            }
+
+            // 1. Update DB and get the student's email
+            var studentEmail = await _classRepository.LowerStudentHandAsync(request.DisplayName);
+
+            if (string.IsNullOrEmpty(studentEmail))
+            {
+                return NotFound("Active student session not found.");
+            }
+
+            // 2. Notify ONLY that specific student via SignalR
+            // Using .User(email) works because of the EmailUserIdProvider we registered
+            await _hubContext.Clients.User(studentEmail).SendAsync("ReceiveHandLowered");
+
+            // 3. Optional: Notify everyone to refresh their UI roster (if you want real-time updates for all)
+            await _hubContext.Clients.All.SendAsync("UpdateRoster");
+
+            return Ok(new { message = "Hand lowered and student notified." });
         }
     }
 }

@@ -3,11 +3,13 @@ using System.Text;
 using klass_bend.Data;
 using klass_bend.Helper;
 using klass_bend.Hubs;
+using klass_bend.Infra;
 using klass_bend.Interfaces;
 using klass_bend.Models;
 using klass_bend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -30,6 +32,8 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IClassRepository, ClassRepository>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+// Add this before builder.Build()
+builder.Services.AddSingleton<IUserIdProvider, EmailUserIdProvider>();
 
 builder.Services.AddIdentity<User, IdentityRole>(options =>
 {

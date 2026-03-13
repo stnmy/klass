@@ -16,7 +16,8 @@ export const useJitsi = (isTeacher: boolean) => {
 
     // Updated type definition to include 'hand-raised'
     const [activeNotification, setActiveNotification] = useState<{
-        type: "unmute-request" | "muted-by-teacher" | "hand-raised";
+        // Add "hand-lowered" to the union type below
+        type: "unmute-request" | "muted-by-teacher" | "hand-raised" | "hand-lowered";
         message?: string;
         visible: boolean;
     } | null>(null);

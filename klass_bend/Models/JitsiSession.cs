@@ -12,8 +12,10 @@ namespace klass_bend.Models
 
         [MaxLength(256)]
         public string? UserEmail { get; set; }
+        public string? DisplayName { get; set; }
 
         public bool IsOccupied { get; set; }
         public DateTime? JoinedAt { get; set; }
+        public bool IsHandRaised { get; set; }
     }
 }

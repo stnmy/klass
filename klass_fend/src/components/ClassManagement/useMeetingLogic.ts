@@ -11,6 +11,10 @@ export const useMeetingLogic = (
   const [loading, setLoading] = useState(true);
 
   const [isSyncingLock, setIsSyncingLock] = useState(false);
+
+  // NEW: Track hand state locally to keep the button in sync
+  const [isHandRaised, setIsHandRaised] = useState(false);
+
   const [classroomState, setClassroomState] = useState({
     focusMode: "default",
     isLocked: false,
@@ -27,10 +31,6 @@ export const useMeetingLogic = (
     return "default";
   }, []);
 
-  /**
-   * APPLY FOCUS MODE:
-   * This bridges the hook to the UI 'layout' state.
-   */
   const applyFocusMode = useCallback(
     (mode: string) => {
       if (!mode) return;
@@ -44,9 +44,6 @@ export const useMeetingLogic = (
     [setLayout],
   );
 
-  /**
-   * INITIAL FETCH
-   */
   useEffect(() => {
     (async () => {
       try {
@@ -62,7 +59,6 @@ export const useMeetingLogic = (
 
         if (stateRes.status === 200) {
           setClassroomState(stateRes.data);
-          // Only auto-apply if locked and student
           if (stateRes.data.isLocked && !isTeacher) {
             applyFocusMode(stateRes.data.focusMode);
           }
@@ -75,18 +71,11 @@ export const useMeetingLogic = (
     })();
   }, [isTeacher, applyFocusMode]);
 
-  /**
-   * MASTER TOGGLE (Header Switch)
-   * ADDED: forcedLockedState parameter to support the Reset-on-Unlock logic 
-   * while keeping all existing state updates exactly as they were.
-   */
   const handleToggleLock = async (
     nextManualStatus: boolean,
     currentMode: string,
-    forcedLockedState?: boolean // NEW: Allows Header to force "Reset" behavior
+    forcedLockedState?: boolean
   ) => {
-    // If forcedLockedState is provided (false), it overrides the toggle status.
-    // Otherwise, it defaults to the toggle status (nextManualStatus).
     const finalLockedState = forcedLockedState !== undefined ? forcedLockedState : nextManualStatus;
 
     setClassroomState((prev) => ({
@@ -112,9 +101,6 @@ export const useMeetingLogic = (
     }
   };
 
-  /**
-   * ARROW CLICK SYNC
-   */
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -124,13 +110,11 @@ export const useMeetingLogic = (
     if (isTeacher) {
       const newMode = getModeFromLayout(layout);
 
-      // Update local state so header label stays correct
       setClassroomState(prev => {
         if (prev.focusMode === newMode) return prev;
         return { ...prev, focusMode: newMode };
       });
 
-      // Broadcast if currently locked
       if (classroomState.isLocked && classroomState.isSynced) {
         api.post("/class/sync-layout", {
           focusMode: newMode,
@@ -140,7 +124,6 @@ export const useMeetingLogic = (
         }).catch(err => console.error("Arrow sync broadcast failed", err));
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, isTeacher]);
 
   return {
@@ -153,5 +136,8 @@ export const useMeetingLogic = (
     handleToggleLock,
     applyFocusMode,
     isTeacher,
+    // NEW EXPORTS
+    isHandRaised,
+    setIsHandRaised,
   };
 };

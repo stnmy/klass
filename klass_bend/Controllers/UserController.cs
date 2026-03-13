@@ -55,7 +55,7 @@ namespace klass_bend.Controllers
         public async Task<IActionResult> AssignStudents([FromBody] AddStudentsToSessionDto dto)
         {
             // Get teacher email from JWT claims
-            var teacherEmail = User.FindFirstValue(ClaimTypes.Email); // Usually stored in Name or Email claim
+            var teacherEmail = User.FindFirstValue(ClaimTypes.Email);
 
             if (string.IsNullOrEmpty(teacherEmail))
                 return Unauthorized("Teacher identity not found.");
@@ -63,8 +63,16 @@ namespace klass_bend.Controllers
             if (dto.StudentEmails == null || !dto.StudentEmails.Any())
                 return BadRequest("No one to add to meeting");
 
-            // Pass teacherEmail to repository
-            var success = await _userRepository.AssignStudentsToJitsiAsync(dto.StudentEmails, teacherEmail);
+            // Safety check: Ensure list lengths match
+            if (dto.StudentEmails.Count != dto.UserNames.Count)
+                return BadRequest("The number of emails and usernames must match.");
+
+            // Pass both lists to the repository
+            var success = await _userRepository.AssignStudentsToJitsiAsync(
+                dto.StudentEmails,
+                dto.UserNames,
+                teacherEmail
+            );
 
             if (!success)
                 return BadRequest("Failed to add students. Limit of 25 reached.");

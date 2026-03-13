@@ -8,6 +8,8 @@ namespace klass_bend.Interfaces
         Task<bool> UpdateFocusModeAsync(string mode);
         Task<bool> UpdateLockStatusAsync(bool isLocked, bool isSynced);
         Task<bool> UpdateClassroomLayoutAsync(string mode, bool isLocked, bool isSynced);
+        Task<bool> UpdateStudentHandStatusByEmailAsync(string email, bool isRaised);
         Task<bool> ResetClassroomStateAsync();
+        Task<string?> LowerStudentHandAsync(string displayName);
     }
 }

@@ -3,22 +3,25 @@ import * as signalR from "@microsoft/signalr";
 
 type FocusUpdateHandler = (mode: string) => void;
 type LockUpdateHandler = (isLocked: boolean, focusMode: string) => void;
+type HandLoweredHandler = () => void; // Added for hand-lowered notification
 
 export const useClassroomSignalR = (
     onFocusUpdate: FocusUpdateHandler,
-    onLockUpdate: LockUpdateHandler
+    onLockUpdate: LockUpdateHandler,
+    onHandLowered: HandLoweredHandler // New parameter
 ) => {
     const connectionRef = useRef<signalR.HubConnection | null>(null);
 
-    // We use refs for the handlers so the useEffect doesn't need to re-run 
-    // whenever the parent component re-renders or changes the callback logic.
+    // Keep refs updated to avoid re-running the main effect
     const focusUpdateRef = useRef(onFocusUpdate);
     const lockUpdateRef = useRef(onLockUpdate);
+    const handLoweredRef = useRef(onHandLowered);
 
     useEffect(() => {
         focusUpdateRef.current = onFocusUpdate;
         lockUpdateRef.current = onLockUpdate;
-    }, [onFocusUpdate, onLockUpdate]);
+        handLoweredRef.current = onHandLowered;
+    }, [onFocusUpdate, onLockUpdate, onHandLowered]);
 
     useEffect(() => {
         // Avoid double initialization in Strict Mode
@@ -27,7 +30,10 @@ export const useClassroomSignalR = (
         console.log("📡 SignalR: Initializing connection...");
 
         const connection = new signalR.HubConnectionBuilder()
-            .withUrl(import.meta.env.VITE_SIGNALR_URL)
+            .withUrl(import.meta.env.VITE_SIGNALR_URL, {
+                // CRITICAL: This allows the backend EmailUserIdProvider to read the JWT
+                accessTokenFactory: () => localStorage.getItem("token") || "",
+            })
             .withAutomaticReconnect()
             .configureLogging(signalR.LogLevel.Information)
             .build();
@@ -42,6 +48,12 @@ export const useClassroomSignalR = (
         connection.on("ReceiveLockUpdate", (data: { isLocked: boolean; focusMode: string }) => {
             console.log("%c🔒 SignalR: Received Lock Update", "color: #ffc107; font-weight: bold;", data);
             lockUpdateRef.current(data.isLocked, data.focusMode);
+        });
+
+        // Listener for the targeted notification when a teacher lowers your hand
+        connection.on("ReceiveHandLowered", () => {
+            console.log("%c✋ SignalR: Your hand was lowered by the teacher", "color: #dc3545; font-weight: bold;");
+            handLoweredRef.current();
         });
 
         // --- LIFECYCLE EVENTS ---
@@ -73,7 +85,7 @@ export const useClassroomSignalR = (
                 connectionRef.current = null;
             }
         };
-    }, []); // Empty dependency array ensures this only runs once on mount
+    }, []);
 
     return connectionRef.current;
 };

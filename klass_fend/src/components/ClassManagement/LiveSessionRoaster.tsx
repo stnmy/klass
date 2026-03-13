@@ -1,4 +1,5 @@
-import { MicOff, Mic, Hand, Shield } from "lucide-react";
+import { MicOff, Mic, Hand, Shield, X } from "lucide-react";
+import api from "../../api/axios";
 
 interface Participant {
   id: string;
@@ -10,6 +11,7 @@ interface LiveSessionRosterProps {
   raisedHands: string[];
   onForceMute: (id: string) => void;
   onRequestUnmute: (id: string) => void;
+  // This now strictly updates local UI state after the DB call
   onClearHighlight: (id: string) => void;
 }
 
@@ -20,6 +22,22 @@ const LiveSessionRoster = ({
   onRequestUnmute,
   onClearHighlight,
 }: LiveSessionRosterProps) => {
+  const handleLowerHandClick = async (id: string, displayName: string) => {
+    try {
+      // Direct call to your backend to update the DB state
+      await api.post("/class/teacher-lower-hand", {
+        displayName: displayName,
+      });
+
+      // Update the teacher's local state (removing the amber glow/icon)
+      onClearHighlight(id);
+    } catch (error) {
+      console.error("Database sync failed for lowering hand:", error);
+      // Still clear locally so the teacher's UI stays responsive
+      onClearHighlight(id);
+    }
+  };
+
   if (students.length === 0) {
     return (
       <div className="py-8 text-center opacity-40">
@@ -35,6 +53,7 @@ const LiveSessionRoster = ({
     <div className="max-h-80 overflow-y-auto p-2 custom-scrollbar">
       {students.map((student) => {
         const isHighlighted = raisedHands.includes(student.id);
+
         return (
           <div
             key={student.id}
@@ -45,7 +64,6 @@ const LiveSessionRoster = ({
             }`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              {/* Avatar Circle */}
               <div
                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[10px] font-black relative ${
                   isHighlighted
@@ -65,12 +83,9 @@ const LiveSessionRoster = ({
                 )}
               </div>
 
-              {/* Name Info */}
               <div className="flex flex-col min-w-0">
                 <span
-                  className={`text-[10px] font-bold truncate ${
-                    isHighlighted ? "text-amber-800" : "text-brand-deep"
-                  }`}
+                  className={`text-[10px] font-bold truncate ${isHighlighted ? "text-amber-800" : "text-brand-deep"}`}
                 >
                   {student.displayName}
                 </span>
@@ -80,8 +95,27 @@ const LiveSessionRoster = ({
               </div>
             </div>
 
-            {/* Individual Controls */}
             <div className="flex items-center gap-2 shrink-0">
+              {isHighlighted && (
+                <button
+                  title="Lower Student Hand"
+                  onClick={() =>
+                    handleLowerHandClick(student.id, student.displayName)
+                  }
+                  className="relative p-2 rounded-lg bg-white border border-amber-200 text-amber-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all shadow-sm group/hand"
+                >
+                  <Hand
+                    size={14}
+                    className="group-hover/hand:opacity-0 transition-opacity"
+                  />
+                  <X
+                    size={10}
+                    strokeWidth={3}
+                    className="absolute inset-0 m-auto opacity-0 group-hover/hand:opacity-100 transition-opacity"
+                  />
+                </button>
+              )}
+
               <button
                 title="Force Mute"
                 onClick={() => onForceMute(student.id)}
@@ -94,11 +128,13 @@ const LiveSessionRoster = ({
                 title="Invite to Speak"
                 onClick={() => {
                   onRequestUnmute(student.id);
-                  onClearHighlight(student.id);
+                  if (isHighlighted) {
+                    handleLowerHandClick(student.id, student.displayName);
+                  }
                 }}
                 className={`p-2 rounded-lg transition-all border shadow-sm ${
                   isHighlighted
-                    ? "bg-amber-500 text-white border-amber-600 scale-105 hover:bg-amber-600"
+                    ? "bg-amber-500 text-white border-amber-600 scale-105"
                     : "border-brand-teal/20 bg-white text-brand-teal hover:bg-brand-teal hover:text-white"
                 }`}
               >

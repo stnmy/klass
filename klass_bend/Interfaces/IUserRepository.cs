@@ -8,7 +8,8 @@ namespace klass_bend.Interfaces
     {
         Task<IdentityResult> CreateStudentAsync(CreateStudentDto dto);
         Task<IEnumerable<StudentListDto>> GetAllStudentsAsync();
-        Task<bool> AssignStudentsToJitsiAsync(List<string> emails, string teacherEmail);
+        // Inside IUserRepository.cs
+        Task<bool> AssignStudentsToJitsiAsync(List<string> emails, List<string> userNames, string teacherEmail);
         Task ClearJitsiSessionAsync(string teacherEmail);
         Task<JitsiLinkDto?> GetClassroomAccessAsync(string email);
         Task<bool> IsUserInActiveSessionAsync(string email);

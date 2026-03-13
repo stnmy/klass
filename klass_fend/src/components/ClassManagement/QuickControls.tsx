@@ -7,7 +7,7 @@ import {
   Hand,
   MonitorUp,
   MonitorOff,
-  PhoneOff, // Added for the Hang Up button
+  PhoneOff,
 } from "lucide-react";
 
 interface QuickControlsProps {
@@ -16,12 +16,12 @@ interface QuickControlsProps {
   isHandRaised: boolean;
   isSharing: boolean;
   showScreenShare: boolean;
-  isStrictMode: boolean;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
-  onToggleHand: () => void;
+  // UPDATED: Now accepts the intended state as a boolean
+  onToggleHand: (newState: boolean) => void;
   onToggleShare: () => void;
-  onHangUp: () => void; // Added new prop
+  onHangUp: () => void;
 }
 
 const QuickControls = ({
@@ -34,17 +34,23 @@ const QuickControls = ({
   isSharing,
   showScreenShare,
   onToggleShare,
-  onHangUp, // Destructured new prop
+  onHangUp,
 }: QuickControlsProps) => {
-  const [localHandRaised, setLocalHandRaised] = useState(isHandRaised);
+  const [optimisticHand, setOptimisticHand] = useState(isHandRaised);
 
   useEffect(() => {
-    setLocalHandRaised(isHandRaised);
+    setOptimisticHand(isHandRaised);
   }, [isHandRaised]);
 
   const handleHandClick = () => {
-    setLocalHandRaised(!localHandRaised);
-    onToggleHand();
+    // 1. Calculate the NEW state locally
+    const nextState = !optimisticHand;
+
+    // 2. Update UI immediately for snappiness
+    setOptimisticHand(nextState);
+
+    // 3. Pass that EXACT boolean to the parent handler
+    onToggleHand(nextState);
   };
 
   const iconProps = {
@@ -57,7 +63,6 @@ const QuickControls = ({
 
   return (
     <div className="flex gap-2.5 bg-white/90 backdrop-blur-md p-2 rounded-[22px] border border-brand-light/20 shadow-xl pointer-events-auto w-max transition-all duration-300">
-      {/* Mic Control */}
       <button
         onClick={onToggleAudio}
         className={`${btnClass} ${
@@ -69,7 +74,6 @@ const QuickControls = ({
         {isAudioMuted ? <MicOff {...iconProps} /> : <Mic {...iconProps} />}
       </button>
 
-      {/* Video Control */}
       <button
         onClick={onToggleVideo}
         className={`${btnClass} ${
@@ -81,7 +85,6 @@ const QuickControls = ({
         {isVideoMuted ? <VideoOff {...iconProps} /> : <Video {...iconProps} />}
       </button>
 
-      {/* Screen Share */}
       {showScreenShare && (
         <button
           onClick={onToggleShare}
@@ -99,31 +102,28 @@ const QuickControls = ({
         </button>
       )}
 
-      {/* Hand Control */}
       <button
         onClick={handleHandClick}
         className={`${btnClass} relative overflow-hidden transition-all duration-300 ${
-          localHandRaised
+          optimisticHand
             ? "bg-brand-deep border-brand-deep text-white shadow-lg scale-105"
             : "bg-brand-bg border-brand-light/10 text-brand-deep hover:bg-white"
         }`}
       >
         <Hand
           {...iconProps}
-          fill={localHandRaised ? "white" : "none"}
+          fill={optimisticHand ? "white" : "none"}
           className={`transition-all duration-300 ${
-            localHandRaised ? "rotate-[15deg] scale-110" : ""
+            optimisticHand ? "rotate-15deg scale-110" : ""
           }`}
         />
-        {localHandRaised && (
+        {optimisticHand && (
           <span className="absolute inset-0 bg-white/10 animate-pulse pointer-events-none" />
         )}
       </button>
 
-      {/* Vertical Divider */}
-      <div className="w-[1px] h-auto bg-brand-light/20 mx-0.5" />
+      <div className="w-px h-auto bg-brand-light/20 mx-0.5" />
 
-      {/* Hang Up Button */}
       <button
         onClick={onHangUp}
         className={`${btnClass} bg-red-500 border-red-600 text-white hover:bg-red-600 shadow-md active:bg-red-700`}

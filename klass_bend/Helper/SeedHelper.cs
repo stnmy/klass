@@ -40,6 +40,7 @@ namespace klass_bend.Helper
                 if (firstJitsiSession.UserEmail != "teacher@gmail.com")
                 {
                     firstJitsiSession.UserEmail = "teacher@gmail.com";
+                    firstJitsiSession.DisplayName = "teacher";
                     await db.SaveChangesAsync();
                 }
             }
@@ -47,7 +48,7 @@ namespace klass_bend.Helper
             {
                 // Optional: If for some reason the table is totally empty, 
                 // you might still want to create that first row.
-                db.JitsiSessions.Add(new JitsiSession { UserEmail = "teacher@gmail.com" });
+                db.JitsiSessions.Add(new JitsiSession { UserEmail = "teacher@gmail.com", DisplayName = "teacher" });
                 await db.SaveChangesAsync();
             }
         }

@@ -15,7 +15,7 @@ namespace klass_bend.Services
         private readonly IJwtService _jwtService;
         private readonly IConfiguration _configuration;
 
-        public UserRepository(UserManager<User> userManager, 
+        public UserRepository(UserManager<User> userManager,
             RoleManager<IdentityRole> roleManager,
             ApplicationDbContext applicationDbContext,
             IJwtService jwtService,
@@ -49,7 +49,7 @@ namespace klass_bend.Services
 
             var result = await _userManager.CreateAsync(user, dto.Password);
 
-            if(!result.Succeeded)
+            if (!result.Succeeded)
             {
                 return result;
             }
@@ -72,26 +72,39 @@ namespace klass_bend.Services
                 .ToList();
         }
 
-        public async Task<bool> AssignStudentsToJitsiAsync(List<string> emails, string teacherEmail)
+        public async Task<bool> AssignStudentsToJitsiAsync(List<string> emails, List<string> userNames, string teacherEmail)
         {
-            if (!emails.Contains(teacherEmail))
-            {
-                emails.Insert(0, teacherEmail);
-            }
+            // 1. Filter out the teacher from the incoming lists entirely
+            // We create a list of students only, excluding anything matching the teacher's email or "Teacher" name
+            var studentData = emails
+                .Select((email, index) => new { Email = email, Name = userNames[index] })
+                .Where(x => x.Email.ToLower() != teacherEmail.ToLower()
+                         && x.Name.ToLower() != "teacher")
+                .ToList();
 
-            var availableSlots = await _applicationDbContext.JitsiSessions
-                .Where(s => !s.IsOccupied)
+            // 2. Fetch all slots (including the 1st one which we will skip)
+            var allSlots = await _applicationDbContext.JitsiSessions
                 .OrderBy(s => s.JitsiUserStaticId)
                 .ToListAsync();
 
-            if (availableSlots.Count < emails.Count)
+            // 3. Validation: Check if there are enough slots starting from the 2nd one
+            // We skip the 1st slot (index 0), so we need (allSlots.Count - 1) available spaces
+            if ((allSlots.Count - 1) < studentData.Count)
             {
                 return false;
             }
 
-            for (int i = 0; i < emails.Count; i++)
+            // 4. Map Student Data starting from the SECOND slot (Index 1)
+            for (int i = 0; i < studentData.Count; i++)
             {
-                availableSlots[i].UserEmail = emails[i];
+                // Use i + 1 to skip the first row in the database
+                var slot = allSlots[i + 1];
+
+                slot.UserEmail = studentData[i].Email;
+                slot.DisplayName = studentData[i].Name;
+                slot.IsOccupied = true;
+                slot.IsHandRaised = false;
+                slot.JoinedAt = null;
             }
 
             await _applicationDbContext.SaveChangesAsync();
@@ -111,6 +124,7 @@ namespace klass_bend.Services
                 slot.UserEmail = null;
                 slot.IsOccupied = false;
                 slot.JoinedAt = null;
+                slot.DisplayName = null;
             }
 
             await _applicationDbContext.SaveChangesAsync();

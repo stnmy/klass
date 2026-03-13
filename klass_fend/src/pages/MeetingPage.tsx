@@ -19,7 +19,9 @@ const MeetingPage = () => {
   const logic = useMeetingLogic(user, layout, setLayout);
   const jitsi = useJitsi(logic.isTeacher);
 
+  // --- SIGNALR INTEGRATION ---
   useClassroomSignalR(
+    // 1. Focus Mode Updates
     useCallback(
       (mode: string) => {
         if (logic.isTeacher) return;
@@ -35,6 +37,7 @@ const MeetingPage = () => {
         logic.setClassroomState,
       ],
     ),
+    // 2. Lock/UI State Updates
     useCallback(
       (isLocked: boolean, focusMode: string) => {
         if (logic.isTeacher) return;
@@ -52,6 +55,36 @@ const MeetingPage = () => {
       },
       [logic.isTeacher, logic.applyFocusMode, logic.setClassroomState],
     ),
+    // 3. Hand Lowered Notification (SignalR)
+    useCallback(() => {
+      console.log(
+        "%c✋ SignalR: Hand lowered by teacher.",
+        "color: #dc3545; font-weight: bold;",
+      );
+
+      // Reset the local hand state (Syncs the Header button)
+      logic.setIsHandRaised(false);
+
+      // Update Jitsi UI (Removes the blue hand icon from the frame)
+      if (jitsi.execute) {
+        jitsi.execute("toggleRaiseHand", { raised: false });
+      }
+
+      // Show visual feedback via NotificationOverlay
+      // Matches the type definition: { type: ..., message: ..., visible: ... }
+      if (jitsi.setActiveNotification) {
+        jitsi.setActiveNotification({
+          type: "hand-raised", // Reusing this type or add "hand-lowered" to your hook types
+          message: "The teacher has lowered your hand.",
+          visible: true,
+        });
+
+        // Auto-clear the toast after 4 seconds
+        setTimeout(() => {
+          jitsi.setActiveNotification(null);
+        }, 4000);
+      }
+    }, [logic.setIsHandRaised, jitsi]),
   );
 
   const isReadyForJitsi = useMemo(() => {
@@ -69,9 +102,9 @@ const MeetingPage = () => {
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#F8F9FA] overflow-hidden">
-      {/* HEADER: Floating style without the background bar */}
+      {/* HEADER: {...logic} includes isHandRaised and setIsHandRaised */}
       <header className="h-20 w-full flex items-center px-2 z-50 shrink-0">
-        <MeetingHeader {...logic} jitsi={jitsi} />
+        <MeetingHeader {...logic} jitsi={jitsi} setLayout={setLayout} />
       </header>
 
       {/* MEETING BODY */}
@@ -81,10 +114,7 @@ const MeetingPage = () => {
           setActiveNotification={jitsi.setActiveNotification}
         />
 
-        {/* Main Workspace Area:
-            Instead of w-0, we use w-20 (80px) when minimized.
-            This prevents Jitsi from hitting the far left wall.
-        */}
+        {/* Main Workspace Area */}
         <main
           className={`relative flex flex-col transition-all duration-700 ${
             layout === "min-workspace" ? "w-20 p-2" : "flex-1 pr-2"

@@ -118,17 +118,31 @@ const InitiateClass = () => {
     try {
       if (action === "start") {
         if (selectedEmails.length > 25) throw new Error("Max 25 students.");
+
+        // 1. Extract UserNames for the selected students
+        // We iterate through selectedEmails and find the matching student object in our state
+        const selectedUserNames = selectedEmails.map((email) => {
+          const student = students.find((s) => s.email === email);
+          return student?.userName || "Student"; // Matches your DTO's expectations
+        });
+
+        // 2. Send the synchronized lists to the backend
         await api.post("/user/AssignStudents", {
           studentEmails: selectedEmails,
+          userNames: selectedUserNames,
         });
+
         setMessage({
           type: "success",
           text: `Successfully assigned ${selectedEmails.length} students.`,
         });
+
+        // Reset selection after success
         setSelectedEmails([]);
         setSelectedGroup("");
         setGroupMembers([]);
       } else {
+        // Logic for ending the class
         await api.post("/user/ClearSession");
         setMessage({
           type: "success",
@@ -142,7 +156,6 @@ const InitiateClass = () => {
       setSubmitting(false);
     }
   };
-
   return (
     <div className="relative min-h-screen bg-brand-bg/30 pt-24 pb-12 px-6 font-sans">
       {/* CLEAR SESSION MODAL */}

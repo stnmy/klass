@@ -52,18 +52,12 @@ namespace klass_bend.Services
 
         public async Task<bool> UpdateClassroomLayoutAsync(string mode, bool isLocked, bool isSynced)
         {
-            // 1. Fetch the record ONCE
             var state = await _applicationDbContext.ClassroomState.FirstOrDefaultAsync(x => x.Id == 1);
             if (state == null) return false;
 
-            // 2. Apply all changes to the tracked object
             state.FocusMode = mode;
             state.IsLocked = isLocked;
             state.IsSynced = isSynced;
-
-            // 3. Save ONCE
-            // This generates a single SQL UPDATE statement: 
-            // UPDATE ClassroomState SET FocusMode = ..., IsLocked = ... WHERE Id = 1
             return await _applicationDbContext.SaveChangesAsync() > 0;
         }
 
@@ -79,6 +73,31 @@ namespace klass_bend.Services
             state.IsLocked = false;
             state.IsSynced = false;
             return await _applicationDbContext.SaveChangesAsync() > 0;
+        }
+
+        public async Task<bool> UpdateStudentHandStatusByEmailAsync(string email, bool isRaised)
+        {
+            var session = await _applicationDbContext.JitsiSessions
+                .FirstOrDefaultAsync(s => s.UserEmail == email);
+
+            if (session == null) return false;
+
+            session.IsHandRaised = isRaised;
+            return await _applicationDbContext.SaveChangesAsync() > 0;
+        }
+        public async Task<string?> LowerStudentHandAsync(string displayName)
+        {
+            // Find the session matching the name that is currently occupied
+            var session = await _applicationDbContext.JitsiSessions
+                .FirstOrDefaultAsync(s => s.IsOccupied && s.DisplayName == displayName);
+
+            if (session == null) return null;
+
+            session.IsHandRaised = false;
+            await _applicationDbContext.SaveChangesAsync();
+
+            // Return the email so the controller knows who to notify via SignalR
+            return session.UserEmail;
         }
     }
 }
