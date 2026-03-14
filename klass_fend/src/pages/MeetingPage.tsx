@@ -11,7 +11,9 @@ import ClassroomSidebar from "../components/ClassManagement/ClassroomSidebar";
 import LoadingScreen from "../components/ClassManagement/LoadingScreen";
 
 const MeetingPage = () => {
+  // Fixed typo from 'userUser' to 'useUser'
   const { user } = useUser();
+
   const [layout, setLayout] = useState<"split" | "min-video" | "min-workspace">(
     "split",
   );
@@ -55,31 +57,18 @@ const MeetingPage = () => {
       },
       [logic.isTeacher, logic.applyFocusMode, logic.setClassroomState],
     ),
-    // 3. Hand Lowered Notification (SignalR)
+    // 3. Hand Lowered Notification
     useCallback(() => {
-      console.log(
-        "%c✋ SignalR: Hand lowered by teacher.",
-        "color: #dc3545; font-weight: bold;",
-      );
-
-      // Reset the local hand state (Syncs the Header button)
       logic.setIsHandRaised(false);
-
-      // Update Jitsi UI (Removes the blue hand icon from the frame)
       if (jitsi.execute) {
         jitsi.execute("toggleRaiseHand", { raised: false });
       }
-
-      // Show visual feedback via NotificationOverlay
-      // Matches the type definition: { type: ..., message: ..., visible: ... }
       if (jitsi.setActiveNotification) {
         jitsi.setActiveNotification({
-          type: "hand-raised", // Reusing this type or add "hand-lowered" to your hook types
+          type: "hand-raised",
           message: "The teacher has lowered your hand.",
           visible: true,
         });
-
-        // Auto-clear the toast after 4 seconds
         setTimeout(() => {
           jitsi.setActiveNotification(null);
         }, 4000);
@@ -102,9 +91,14 @@ const MeetingPage = () => {
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#F8F9FA] overflow-hidden">
-      {/* HEADER: {...logic} includes isHandRaised and setIsHandRaised */}
+      {/* HEADER: Layout and SetLayout passed here for the header pill controls */}
       <header className="h-20 w-full flex items-center px-2 z-50 shrink-0">
-        <MeetingHeader {...logic} jitsi={jitsi} setLayout={setLayout} />
+        <MeetingHeader
+          {...logic}
+          jitsi={jitsi}
+          layout={layout}
+          setLayout={setLayout}
+        />
       </header>
 
       {/* MEETING BODY */}
@@ -138,17 +132,15 @@ const MeetingPage = () => {
           </div>
         </main>
 
-        {/* Jitsi Sidebar Area */}
+        {/* Jitsi Sidebar Area: layout is used for width logic */}
         {isReadyForJitsi && (
           <ClassroomSidebar
             layout={layout}
-            setLayout={setLayout}
             isSharing={jitsi.isSharing}
             jwt={logic.jwt}
             roomData={logic.roomData}
             onApiReady={jitsi.onApiReady}
             isTeacher={logic.isTeacher}
-            isLocked={logic.classroomState.isLocked}
           />
         )}
       </div>

@@ -47,10 +47,19 @@ const ClassroomControls = ({
   localDisplayName,
   setClassroomState,
   classroomState,
+  onSetLayout,
 }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [syncingMode, setSyncingMode] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // --- LOCAL ISOLATION STATE ---
+  // This tracks what the Teacher INTENTIONALLY clicked.
+  // It ignores global classroomState updates from SignalR.
+  const [localActiveMode, setLocalActiveMode] = useState({
+    mode: classroomState.focusMode,
+    locked: classroomState.isLocked,
+  });
 
   const studentRoster = participants.filter(
     (p) => p.displayName?.toLowerCase() !== localDisplayName?.toLowerCase(),
@@ -58,11 +67,16 @@ const ClassroomControls = ({
 
   /**
    * Syncs the classroom-wide layout (broadcast).
-   * Note: This NO LONGER calls onSetLayout. It only affects the students.
+   * LOGIC: Only moves the Teacher's UI and highlights buttons on explicit click.
    */
   const syncLayout = async (mode: string, locked: boolean, synced: boolean) => {
     try {
       setSyncingMode(mode === "default" && !locked ? "reset" : mode);
+
+      // 1. Update the Teacher's View & Local Button Highlight IMMEDIATELY
+      onSetLayout(mode);
+      setLocalActiveMode({ mode, locked });
+
       const payload = {
         focusMode: mode,
         isLocked: locked,
@@ -70,18 +84,17 @@ const ClassroomControls = ({
         isManualLock: classroomState.isManualLock,
       };
 
+      // 2. Broadcast to students
       await api.post("/class/sync-layout", payload);
 
-      // Update the global state so buttons highlight correctly
+      // 3. Update global state object (for students/other components)
+      // Our buttons won't re-render from this because they use localActiveMode
       setClassroomState((prev: any) => ({
         ...prev,
         focusMode: mode,
         isLocked: locked,
         isSynced: synced,
       }));
-
-      // TEACHER VIEW: Is now left untouched.
-      // Teacher stays in whatever view they manually selected.
     } catch (err) {
       console.error("Layout synchronization failed", err);
     } finally {
@@ -103,12 +116,11 @@ const ClassroomControls = ({
   }, []);
 
   /**
-   * Logic: Strictly Global Focus Mode.
-   * Buttons highlight ONLY if the classroom is set to that mode.
+   * Logic: Returns true ONLY if the mode matches the Teacher's last intentional click.
    */
   const getActiveState = (mode: string, lockedReq: boolean) => {
     return (
-      classroomState.focusMode === mode && classroomState.isLocked === lockedReq
+      localActiveMode.mode === mode && localActiveMode.locked === lockedReq
     );
   };
 
@@ -151,7 +163,7 @@ const ClassroomControls = ({
       {/* Main Dropdown Panel */}
       {isOpen && (
         <div className="absolute top-full mt-2 right-0 w-85 bg-white rounded-3xl shadow-2xl border border-brand-light/10 overflow-hidden z-60 animate-in fade-in zoom-in-95 duration-200">
-          {/* 1. Global Sync Grid: Strictly reflects classroomState */}
+          {/* 1. Sync Grid: Uses Local Active State */}
           <div className="p-3 bg-gray-50/50 border-b border-brand-light/10 grid grid-cols-4 gap-2">
             <LayoutBtn
               icon={<Video size={14} />}
@@ -210,7 +222,6 @@ const ClassroomControls = ({
             </button>
           </div>
 
-          {/* 3. Live Session Roster Component */}
           <LiveSessionRoster
             students={studentRoster}
             raisedHands={raisedHands}
@@ -258,7 +269,6 @@ const LayoutBtn = ({
         </div>
       )}
       <span className="text-[7px] font-black uppercase">{label}</span>
-
       {isActive && !isReset && (
         <div className="absolute bottom-1 w-1 h-1 bg-white rounded-full animate-pulse" />
       )}
