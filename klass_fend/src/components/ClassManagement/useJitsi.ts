@@ -38,12 +38,19 @@ export const useJitsi = (isTeacher: boolean) => {
     const toggleStrictMode = useCallback(
         (enabled: boolean) => {
             if (!jitsiApi.current || !isTeacher) return;
+
+            // 1. Update React state immediately for UI responsiveness
             setIsStrictMode(enabled);
+
+
             jitsiApi.current.executeCommand("toggleModeration", enabled, "audio");
             jitsiApi.current.executeCommand("toggleModeration", enabled, "video");
+
+            console.log(`Strict Mode toggled to: ${enabled}`);
         },
         [isTeacher]
     );
+
 
     const onApiReady = (api: any) => {
         jitsiApi.current = api;

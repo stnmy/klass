@@ -145,11 +145,24 @@ const MeetingHeader = ({
                 </button>
 
                 <ClassroomControls
-                  {...jitsi}
+                  participants={jitsi.participants}
+                  raisedHands={jitsi.raisedHands}
+                  isStrictMode={jitsi.isStrictMode}
+                  onToggleStrictMode={jitsi.toggleStrictMode}
+                  onRequestUnmute={(id: string) =>
+                    jitsi.execute("askToUnmute", id)
+                  }
+                  onForceMute={(id: string) => {
+                    jitsi.execute("muteRemoteParticipant", id, "audio");
+                    jitsi.execute("rejectModeration", id, "audio");
+                  }}
+                  onMuteAll={() => jitsi.execute("muteEveryone", "audio")}
+                  onClearHighlight={(id) => jitsi.setRaisedHands((prev: string[]) => prev.filter(h => h !== id))}
                   setClassroomState={setClassroomState}
                   classroomState={classroomState}
                   onSetLayout={setLayout}
                   localDisplayName={roomData.displayName}
+                  isUiLocked={classroomState.isManualLock}
                 />
               </div>
             )}
@@ -157,7 +170,7 @@ const MeetingHeader = ({
         )}
       </div>
 
-      {/* RIGHT SECTION: Locked Badge (col-4 pushed right for student) */}
+      {/* RIGHT SECTION: Management Links (Teacher) or Locked Badge (Student) */}
       <div
         className={`${isTeacher ? "col-span-3" : "col-span-4"} flex justify-end items-center gap-2`}
       >
@@ -165,12 +178,16 @@ const MeetingHeader = ({
           <div className="flex items-center gap-2 pointer-events-auto">
             <a
               href="http://localhost:5091/group"
+              target="_blank"
+              rel="noopener noreferrer"
               className={`${managementBtnClass} hidden xl:flex`}
             >
               <Users size={14} /> <span>Group</span>
             </a>
             <a
               href="http://localhost:5091/startClass"
+              target="_blank"
+              rel="noopener noreferrer"
               className={managementBtnClass}
             >
               <PlayCircle size={14} />

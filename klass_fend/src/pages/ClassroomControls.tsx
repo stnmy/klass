@@ -33,6 +33,7 @@ interface Props {
   setClassroomState: React.Dispatch<React.SetStateAction<any>>;
   classroomState: any;
   onSetLayout: (layout: string) => void;
+  isUiLocked: boolean; 
 }
 
 const ClassroomControls = ({
@@ -48,32 +49,34 @@ const ClassroomControls = ({
   setClassroomState,
   classroomState,
   onSetLayout,
+  isUiLocked,
 }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [syncingMode, setSyncingMode] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // --- LOCAL ISOLATION STATE ---
-  // This tracks what the Teacher INTENTIONALLY clicked.
-  // It ignores global classroomState updates from SignalR.
+  // localActiveMode tracks which layout button is visually "active"
   const [localActiveMode, setLocalActiveMode] = useState({
     mode: classroomState.focusMode,
     locked: classroomState.isLocked,
   });
 
+  // Keep local layout state in sync if parent state changes externally
+  useEffect(() => {
+    setLocalActiveMode({
+      mode: classroomState.focusMode,
+      locked: classroomState.isLocked,
+    });
+  }, [classroomState.focusMode, classroomState.isLocked]);
+
   const studentRoster = participants.filter(
     (p) => p.displayName?.toLowerCase() !== localDisplayName?.toLowerCase(),
   );
 
-  /**
-   * Syncs the classroom-wide layout (broadcast).
-   * LOGIC: Only moves the Teacher's UI and highlights buttons on explicit click.
-   */
   const syncLayout = async (mode: string, locked: boolean, synced: boolean) => {
     try {
       setSyncingMode(mode === "default" && !locked ? "reset" : mode);
 
-      // 1. Update the Teacher's View & Local Button Highlight IMMEDIATELY
       onSetLayout(mode);
       setLocalActiveMode({ mode, locked });
 
@@ -84,11 +87,8 @@ const ClassroomControls = ({
         isManualLock: classroomState.isManualLock,
       };
 
-      // 2. Broadcast to students
       await api.post("/class/sync-layout", payload);
 
-      // 3. Update global state object (for students/other components)
-      // Our buttons won't re-render from this because they use localActiveMode
       setClassroomState((prev: any) => ({
         ...prev,
         focusMode: mode,
@@ -115,9 +115,6 @@ const ClassroomControls = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  /**
-   * Logic: Returns true ONLY if the mode matches the Teacher's last intentional click.
-   */
   const getActiveState = (mode: string, lockedReq: boolean) => {
     return (
       localActiveMode.mode === mode && localActiveMode.locked === lockedReq
@@ -163,14 +160,16 @@ const ClassroomControls = ({
       {/* Main Dropdown Panel */}
       {isOpen && (
         <div className="absolute top-full mt-2 right-0 w-85 bg-white rounded-3xl shadow-2xl border border-brand-light/10 overflow-hidden z-60 animate-in fade-in zoom-in-95 duration-200">
-          {/* 1. Sync Grid: Uses Local Active State */}
-          <div className="p-3 bg-gray-50/50 border-b border-brand-light/10 grid grid-cols-4 gap-2">
+          
+          {/* 1. Sync Grid: Disabled when UI is locked */}
+          <div className={`p-3 bg-gray-50/50 border-b border-brand-light/10 grid grid-cols-4 gap-2 transition-opacity duration-300 ${isUiLocked ? 'opacity-60' : 'opacity-100'}`}>
             <LayoutBtn
               icon={<Video size={14} />}
               label="Jitsi"
               isActive={getActiveState("jitsi", true)}
               isLoading={syncingMode === "jitsi"}
               onClick={() => syncLayout("jitsi", true, false)}
+              disabled={isUiLocked}
             />
             <LayoutBtn
               icon={<Layout size={14} />}
@@ -178,6 +177,7 @@ const ClassroomControls = ({
               isActive={getActiveState("default", true)}
               isLoading={syncingMode === "default"}
               onClick={() => syncLayout("default", true, false)}
+              disabled={isUiLocked}
             />
             <LayoutBtn
               icon={<Monitor size={14} />}
@@ -185,6 +185,7 @@ const ClassroomControls = ({
               isActive={getActiveState("class", true)}
               isLoading={syncingMode === "class"}
               onClick={() => syncLayout("class", true, false)}
+              disabled={isUiLocked}
             />
             <LayoutBtn
               icon={<RotateCcw size={14} />}
@@ -193,13 +194,21 @@ const ClassroomControls = ({
               isLoading={syncingMode === "reset"}
               onClick={() => syncLayout("default", false, false)}
               isReset
+              disabled={isUiLocked}
             />
           </div>
 
           {/* 2. Global Moderation Bar */}
           <div className="p-4 bg-brand-bg/30 border-b border-brand-light/10 flex gap-2 justify-between items-center">
             <button
-              onClick={() => onToggleStrictMode(!isStrictMode)}
+              onClick={() => {
+                // Safety Guard: Check if function exists to prevent crash
+                if (typeof onToggleStrictMode === "function") {
+                    onToggleStrictMode(!isStrictMode);
+                } else {
+                    console.warn("onToggleStrictMode is not defined");
+                }
+              }}
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-black text-[8px] uppercase transition-all shadow-sm active:scale-95 border ${
                 isStrictMode
                   ? "bg-red-600 text-white border-red-700"
@@ -213,7 +222,7 @@ const ClassroomControls = ({
             <button
               onClick={() => {
                 onMuteAll();
-                setIsOpen(false);
+                // setIsOpen(false);
               }}
               className="flex flex-1 items-center justify-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95 border border-red-100"
             >
@@ -235,6 +244,16 @@ const ClassroomControls = ({
   );
 };
 
+interface LayoutBtnProps {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  isActive: boolean;
+  isLoading: boolean;
+  isReset?: boolean;
+  disabled?: boolean;
+}
+
 const LayoutBtn = ({
   icon,
   label,
@@ -242,7 +261,8 @@ const LayoutBtn = ({
   isActive,
   isLoading,
   isReset = false,
-}: any) => {
+  disabled = false,
+}: LayoutBtnProps) => {
   const activeClass = isReset
     ? "bg-red-600 text-white border-red-700"
     : "bg-brand-teal text-white border-brand-teal shadow-md";
@@ -254,16 +274,16 @@ const LayoutBtn = ({
   return (
     <button
       onClick={onClick}
-      disabled={isLoading}
-      className={`relative flex flex-col items-center gap-1 p-2 rounded-xl transition-all border active:scale-95 disabled:opacity-70 ${
+      disabled={isLoading || disabled}
+      className={`relative flex flex-col items-center gap-1 p-2 rounded-xl transition-all border disabled:cursor-not-allowed ${
         isActive ? activeClass : inactiveClass
-      }`}
+      } ${!disabled ? "active:scale-95" : "opacity-50 grayscale-[0.3]"}`}
     >
       {isLoading ? (
         <Loader2 size={14} className="animate-spin" />
       ) : (
         <div
-          className={!isReset && !isActive ? "group-hover:text-brand-teal" : ""}
+          className={!isReset && !isActive && !disabled ? "group-hover:text-brand-teal" : ""}
         >
           {icon}
         </div>
